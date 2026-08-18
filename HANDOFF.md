@@ -1,8 +1,13 @@
 # Handoff — resuming this work on another machine
 
 Read this first, then `NOTES.md` (running state and open threads), then
-`MANUAL.md` (finished reference). Between them they carry everything; nothing
-required to continue lives outside this repository.
+`MANUAL.md` (finished reference). Between them they carry everything needed to
+resume.
+
+> **Since 2026-08-18** the project is split across repositories: this one holds
+> the documents and the tools, `../DRC-185` and `../DRC-120.blue` hold the
+> measurements for their geometries, and `open-media-drc` holds the deployment.
+> The measurement files named below live in `../DRC-185`. See `CLAUDE.md`.
 
 > **Why this file exists.** Claude Code's memory and session transcripts are
 > stored per-machine under `~/.claude/projects/…`. They do **not** travel with
@@ -35,7 +40,7 @@ all-pass, because REW has no view that separates interference from level.
   pyqtgraph port pulls PyQt5 and the whole Qt5 stack plus scipy, matplotlib
   and h5py. pyqtgraph is binding-agnostic and picks up whichever Qt is
   already imported; this tool imports PySide6 first, so it runs on Qt6.
-- Run: `python3 allpass_tool.py -l L0.txt -r R0.txt -s LR.txt`
+- Run: `python3 allpass_tool.py -l ../DRC-185/L0.txt -r ../DRC-185/R0.txt -s ../DRC-185/LR.txt`
   (falls back to those names in the current directory). The tool needs no
   `PYTHONPATH`. `audio_io.py` must sit beside it.
 
@@ -83,11 +88,11 @@ not currently break this tool — but unset it first if any import misbehaves.
 | `audio_io.py` | dependency-free WAV/RAW/TXT I/O (PCM 8/16/24/32, float 32/64) |
 | `MANUAL.md` | finished reference: how it works and why, 11 sections |
 | `NOTES.md` | running investigation state and open threads |
-| `L0.txt` `R0.txt` `LR.txt` | the reference measurements (REW text exports) |
-| `L_ap+R0.txt` | REW trace arithmetic, used to validate predictions |
-| `ap_L_42p5_Q2p5.txt` | rePhase all-pass, used to validate the filter model |
-| `Xo801.wav` | rePhase phase-linearisation filter for the 801 |
-| `L-EP.txt` `R-EP.txt` | **excess phase** exports (magnitude 0 dB) — *not* a second mic position |
+| `../DRC-185/L0.txt` `R0.txt` `LR.txt` | the reference measurements (REW text exports) |
+| `../DRC-185/L_ap+R0.txt` | REW trace arithmetic, used to validate predictions |
+| `../DRC-185/ap_L_42p5_Q2p5.txt` | rePhase all-pass, used to validate the filter model |
+| `../DRC-185/Xo801.wav` | rePhase phase-linearisation filter for the 801 |
+| `../DRC-185/L-EP.txt` `R-EP.txt` | **excess phase** exports (magnitude 0 dB) — *not* a second mic position |
 
 ## 4. Validated numbers — do not re-derive these
 

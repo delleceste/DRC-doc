@@ -11,13 +11,15 @@ and BruteFIR.
 ## 1. Running it
 
 ```
-cd /home/giacomo/devel/DRC/DRC-185
-python3 allpass_tool.py -l L0.txt -r R0.txt -s LR.txt
+cd /home/giacomo/devel/DRC/DRC-doc
+python3 allpass_tool.py -l ../DRC-185/L0.txt -r ../DRC-185/R0.txt -s ../DRC-185/LR.txt
 ```
 
 With no arguments it looks for `L0.txt` / `R0.txt` / `LR.txt` in the current
-directory. `-s` (the measured L+R) is optional: without it the tool warns and
-uses the calculated complex sum instead.
+directory. Since the 2026-08-18 split the tool lives here while the 185 cm
+measurements live in `../DRC-185`, so the paths have to be given. `-s` (the
+measured L+R) is optional: without it the tool warns and uses the calculated
+complex sum instead.
 
 **Dependencies** — nothing exotic, no virtualenv needed:
 
