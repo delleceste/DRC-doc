@@ -31,6 +31,8 @@ paths* below.
   Its worked example is the 120 cm configuration, but the procedure is general.
 - **`NOTES.md`** — the history *and* the retractions, through 2026-08-18.
 - **`SUBWOOFER-INTEGRATION.md`** — the sub analysis, added 2026-08-13.
+- **`GIK-SCREEN-PANEL-PLACEMENT-120cm.md`** — the completed 120 cm study of
+  first-reflection geometry and the right-side panel reorder.
 - **`MANUAL.md`** — `allpass_tool.py` user manual. Finished reference.
 - **`HANDOFF.md`** — resuming on another machine; the environment traps.
 
@@ -38,9 +40,11 @@ Do not let the working notes bleed into the guide; that separation is
 deliberate. The guide is clean *because* the retractions are in `NOTES.md`,
 which is why the two travel together and must stay in the same repo.
 
-Forward, geometry-specific work is written in that geometry's own notes:
-`../DRC-185/NOTES.md`, `../DRC-120.blue/NOTES.md`. What belongs here is
-whatever is true regardless of where the speakers stand.
+Forward, geometry-specific working notes are written in that geometry's own
+notes: `../DRC-185/NOTES.md`, `../DRC-120.blue/NOTES.md`. A completed,
+self-contained study may live here when its filename identifies the geometry,
+it keeps the measurements in their geometry repository, and its scripts read
+them through an explicit cross-repository path.
 
 ## Building the PDFs
 
@@ -102,6 +106,7 @@ No script here reads a local data file. What each one opens:
 | `figchain.py` | nothing — it draws | `fig-chain.png` |
 | `figroom.py` | `roomgeom.py`, traced from `room-form-with-panels.png` | `room-form.pdf` (2 pages), `room-form.png`, `room-form-panels.png` |
 | `figreflect.py` | `roomgeom.py` | `reflections-L-R.pdf`, `reflections-L.png`, `reflections-R.png` |
+| `gik_screen_panel_placement-120cm.py` | `roomgeom.py`, `../DRC-120.blue/foam.screens.opendoor.mdat`, `../DRC-120.blue/120.blue.Rscreen.txts.boh/` | `panel-placement-*-120cm.png` |
 | `housecurve.py` | nothing | `house-curve-C2.txt`, `house-curve-C3.txt` |
 | `allpass_tool.py` | `-l/-r/-s`, default `L0/R0/LR.txt` **in the cwd** | — |
 
