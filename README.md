@@ -6,7 +6,7 @@ no measurement data lives here.
 
 | document | what it is | PDF |
 |---|---|---|
-| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 40 pp |
+| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 42 pp |
 | [`NOTES.md`](NOTES.md) | the working history, including the retractions | 38 pp |
 | [`SUBWOOFER-INTEGRATION.md`](SUBWOOFER-INTEGRATION.md) | integrating subs under a single-DAC constraint | 6 pp |
 | [`GIK-SCREEN-PANEL-PLACEMENT-120cm.md`](GIK-SCREEN-PANEL-PLACEMENT-120cm.md) | reflection geometry and measured panel-order study for the 120 cm configuration | 7 pp |

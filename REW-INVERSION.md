@@ -2,6 +2,18 @@
 
 **A step-by-step guide, with the reasoning behind each choice.**
 
+**Procedure revision:** [`rew-inversion-v2026.08.18`](https://github.com/delleceste/DRC-doc/blob/rew-inversion-v2026.08.18/REW-INVERSION.md)
+
+**REW interface baseline:** **V5.40 beta 131**. The measurements used for the
+new multi-position example were made with V5.40 beta 122; the action names
+below are those in beta 131.
+
+V5.40 replaced the old Actions panels with actions in the **All SPL graph
+right-click menu**. It also replaced the division operation's obsolete
+`Regularisation` percentage with an optional **`Max gain`** control. If the
+screen in front of you has a `Regularisation` field, it is not the beta UI
+documented here.
+
 ---
 
 ## About this document
@@ -29,7 +41,7 @@ current one:
 | Sample rate | 48 kHz throughout |
 | Crossover correction | `X801.wav`, built in rePhase, 131072 taps |
 | Convolution engine | BruteFIR |
-| Data | `../DRC-120.blue/120-blue-with-inversion.mdat` and the exports in `../DRC-120.blue/120.blue-with-inversion.txts/` |
+| Data | inversion example: `../DRC-120.blue/120-blue-with-inversion.mdat`; multi-position example: `../DRC-120.blue/120.blue.screens.multimeas.mdat` |
 
 **Not covered:** subwoofers, speaker placement, Auto EQ, room treatment.
 
@@ -57,7 +69,7 @@ current one:
   - [R2. Choosing a window shape](#r2-choosing-a-window-shape)
   - [R3. Minimum phase — the two places you take it](#r3-minimum-phase--the-two-places-you-take-it-and-the-one-place-you-must-not)
   - [R4. How to invert: `÷`, `1/A` and `1/|A|`](#r4-how-to-invert--1a-and-1a)
-  - [R5. The three boost guards](#r5-the-three-boost-guards)
+  - [R5. The two boost guards in V5.40 beta](#r5-the-two-boost-guards-in-v540-beta)
   - [R6. Getting the room's decay figure](#r6-getting-the-rooms-decay-figure)
   - [R7. X801 — what it is, and do not redesign it](#r7-x801--what-it-is-and-do-not-redesign-it)
   - [R8. Acceptance tests](#r8-acceptance-tests)
@@ -269,7 +281,8 @@ feature that causes the damage.
 
 ### The caveats, honestly
 
-1. **Use the RMS average. Never the vector average.** REW's help:
+1. **Use `RMS average` for different positions. Never use `Vector average`
+   across positions.** REW's help:
    > *"**Vector average** … averages the currently selected traces taking into
    > account both magnitude and phase. It … is most appropriate for multiple
    > measurements taken from the same position, or measurements which have been
@@ -279,7 +292,13 @@ feature that causes the damage.
    cancel and **manufactures new nulls** — the exact disease you are trying to
    cure. The **RMS average** is a power average, so a null at one position is
    filled by the others; that is the behaviour you want.
-2. **Level-align first.** REW again:
+   `RMS + phase avg.` is not a better spatial average. It uses the wanted RMS
+   magnitude but attaches a vector-averaged phase which has no physical
+   meaning across positions and may produce a substantially acausal impulse.
+   The inversion later generates minimum phase anyway, so use the plain
+   **`RMS average`** action.
+2. **Level-align first.** In V5.40 beta select the traces in the All SPL
+   legend, right-click the graph and choose **`Align SPL...`**. REW again:
    > *"If the measurements were made at different positions (spatial averaging)
    > it is usually best to first use the **Align SPL…** feature to remove
    > overall level differences due to different source distances."*
@@ -300,6 +319,38 @@ feature that causes the damage.
    contaminated position (mic bumped, door opened) poisons the average
    silently.
 
+### Repeated sweeps at the same position are a different operation
+
+The three centred captures in the 2026-08-17 set — the unsuffixed trace,
+`repetition`, and `repetition.2` — are **not three spatial positions**. They
+measure repeatability at one position. Their 20–225 Hz overall levels agree
+within 0.04 dB; after 1/6-octave averaging their pairwise differences are only
+0.09–0.24 dB rms. None is an outlier.
+
+Their headers are not equally explicit about the entrance door: the
+unsuffixed centre and simultaneous L+R say `entrance door open`, while the two
+repetition notes omit the state. Confirm that the door actually remained open
+before combining them. If it changed, retain only repetitions made in the
+chosen listening condition; response similarity is not permission to average
+different room states.
+
+Keep the information but give the centre only one spatial vote:
+
+1. after applying the FDW to the original captures, select the three centred
+   L traces;
+2. verify that their impulses overlay. They share an acoustic timing
+   reference, so do not shift them merely because an alignment action exists;
+   use **`Cross corr align`** only if the overlay shows an actual offset;
+3. choose **`Vector average`** and name the result `L-C`;
+4. repeat for R, producing `R-C`.
+
+`Vector average` is correct here because these are repeated, coherently timed
+measurements of the same source at the same point. It reduces uncorrelated
+measurement noise. A plain `RMS average` is an acceptable magnitude-only
+fallback, and choosing any one of the three would change very little in this
+dataset, but putting all three directly into the spatial average would weight
+the centre 3/7 instead of 1/5.
+
 > ### Size the cluster from how the listener actually sits
 > Not from what decorrelates best — a spread wider than the seat optimises a
 > place nobody's head goes. On this sofa the honest envelope is **asymmetric**:
@@ -319,10 +370,23 @@ feature that causes the damage.
 
 | | |
 |---|---|
-| **positions** | **5** — the listening position, then **±10 cm left/right** and **±20 cm forward/back**, all at ear height. Asymmetric on purpose: it maps the seat, not a sphere |
+| **positions** | **5** — the listening position plus four points that map the positions the listener's head actually occupies. Symmetry is not required |
 | **per channel** | yes, L and R separately; do not average L with R at this stage |
 | **combine with** | **RMS average**, after **Align SPL…** |
-| **then** | the averaged L and the averaged R become the `L` and `R` of the procedure — everything downstream is unchanged |
+| **repetitions** | first collapse repetitions at one point into one representative trace; never let repeat count become accidental spatial weighting |
+| **then** | build spatial `L`, spatial `R`, and the spatial mono-sum divisor as described in Part III; the last one must be built position by position before spatial phase is discarded |
+
+For the current set the recorded front-wall distances identify the nominal
+`B+10` capture as approximately **`B+33`**: 4.33 m at centre and 4.66 m at the
+back point. That is about 10 cm behind the rear limit the listener's head can
+actually reach, so **do not include it with equal 1/5 weight**. Keep and rename
+it `B~+33 cm — diagnostic, excluded`; it is useful for judging robustness but
+not as occupied-seat data. Remeasure at the real rear limit, approximately
+`B+20` to `B+23`, and use that trace in the production five-position average.
+Until then, a clearly labelled four-position average is more honest than
+silently optimising a position outside the listening envelope. Do not invent
+the missing response by interpolating centre and `B+33`: interference does
+not vary linearly with distance.
 
 ### If you stay single-point
 
@@ -595,7 +659,7 @@ about 80 Hz that is enough to do real damage.
 
 Measured on the 2026-08-10 Rscreen pair, at 50 Hz:
 
-| | L alone | R alone | RMS+phase average | **vector average = the mono sum** |
+| | L alone | R alone | RMS average | **vector average = normalized mono sum** |
 |---|---|---|---|---|
 | level | 75.92 | 71.83 | 73.19 | **68.45 dB** |
 
@@ -629,8 +693,8 @@ response gets flattened. Below it, it is unforced error.
 
 ### The fix is the divisor, not the target
 
-**The target does not change.** Keep the EQ-window target built from the
-RMS+phase average exactly as §5 prescribes — a null in one path filled by the
+**The target does not change.** Keep the EQ-window target built from the plain
+L/R `RMS average` exactly as §5 prescribes — a null in one path filled by the
 other, one common shape for both channels. Change only **what you divide by**,
 and only below 80 Hz:
 
@@ -716,7 +780,7 @@ steps, and at no frequency is any correction applied twice.
 > ### Both factors stay cut-only — nothing has to be allowed to boost
 > This is the property that makes the construction safe without a post-hoc
 > check. `Target ÷ LX` is a target-over-measurement division like any other, so
-> **Maximum gain 0.0 dB on both factors**, and cut-only is then structural
+> **select `Max gain` and set 0.0 dB on both factors**, and cut-only is then structural
 > rather than something you verify afterwards.
 
 > ### The equivalent form, and why it is the worse way to build it
@@ -733,7 +797,7 @@ steps, and at no frequency is any correction applied twice.
 > | | `(T÷SUM) × (SUM÷LX)` | **`(T÷SUM) × (T÷LX)`** |
 > |---|---|---|
 > | boost the second factor wants | **+6.59 dB** | +0.22 dB |
-> | Maximum gain it must be given | **+6.0 dB** | **0.0 dB** |
+> | `Max gain` value it must be given | **+6.0 dB** | **0.0 dB** |
 > | maximum of the product, 20–225 Hz | **+0.20 dB** | **+0.00 dB** |
 > | cut-only is | verified after the fact | **structural** |
 >
@@ -768,22 +832,47 @@ below the crossover; **Harman's Sound Field Management** optimises the
 combined field. The only unusual thing here is that the shared bass sources
 are the two main speakers rather than a subwoofer. The physics is identical.
 
-### If you cannot measure L+R
+### Building L+R when only separate L and R sweeps exist
 
-A measured `L+R` sweep is the honest divisor. Failing that, REW's **vector
-average** of `LX` and `RX` reconstructs it, and here that is trustworthy: the
-two measurements share one acoustic timing reference and their impulse peaks
-sit **0.013 ms** apart, which is 0.23° of phase at 50 Hz. Use the vector
-*average*, not a sum — it is level-consistent with the RMS+phase average the
-target was built from, so no 6 dB bookkeeping is needed.
+REW's **`Vector average`** of a matching L/R pair reconstructs `(L + R) / 2`.
+Use it at each microphone position while coherent phase still exists, **before**
+spatial RMS averaging. Do not vector-average spatial `L-SP` and `R-SP`: those
+traces no longer contain a meaningful position phase.
 
-Verify it when you can. A computed complex sum and a measured `L+R` have
-disagreed by 0.84–2.68 dB rms in this project before.
+The distinction between beta's two similarly named actions matters:
 
-> **It has since been verified.** The 185 cm configuration (`DRC-185/L0.txt`,
-> `R0.txt`, `LR.txt`) includes a genuine measured `L+R` sweep alongside the two
-> channels. Computing the complex sum of `L0` and `R0` reproduces the measured
-> `L+R` to **0.50 dB rms over 20–250 Hz**. The substitution is sound.
+| action | result | use here? |
+|---|---|---|
+| `Vector average` | `(L + R) / 2` | **yes** — same level scale as one channel and the target |
+| `Vector sum` | `L + R` | no — 6.0206 dB higher and needs explicit normalization |
+
+A simultaneous physical L+R sweep is also `L + R`, so subtract **6.0206 dB**
+before substituting it for a vector average. The earlier edition called the
+measured sweep the honest divisor but omitted this normalization; using it
+directly would ask for roughly 6 dB of spurious common cut.
+
+The 2026-08-17 centre set provides the direct check. Measured L+R sits a median
+**6.009 dB** above the calculated L/R vector average over 20–225 Hz, versus
+the theoretical 6.0206 dB. After normalization:
+
+| comparison, measured versus calculated | rms | median | maximum |
+|---|---:|---:|---:|
+| 80–225 Hz, native 0.366 Hz bins | 0.224 dB | −0.006 dB | 0.941 dB |
+| 20–225 Hz, 1/12 octave | 0.504 dB | −0.007 dB | 5.35 dB |
+| 20–225 Hz, 1/6 octave | **0.276 dB** | **+0.003 dB** | 1.95 dB |
+
+The 1/12-octave maximum is the 49 Hz cancellation. At 49.072 Hz the separately
+measured pair predicts 75.06 dB while simultaneous L+R/2 measures 57.45 dB.
+This is not a broadband scale failure: a tiny sequential phase or response
+change moves an almost perfect cancellation between bins. Use simultaneous
+L+R at centre when available, and calculated vector averages elsewhere.
+
+Spatial averaging makes the residual safe: in the five-position calculation,
+replacing calculated centre with measured centre changes the common response
+below 80 Hz by 0.174 dB rms and at most 0.97 dB at 1/12 octave; at 1/6 octave
+the change is 0.104 dB rms and at most 0.41 dB. The substitution is therefore
+sound for a spatial divisor, but it is not literally perfect at native
+resolution.
 
 ---
 
@@ -903,29 +992,34 @@ be worth chasing, and localisation does depend on it.
 
 ![The REW inversion chain](fig-chain.png)
 
-Eleven steps (the diagram folds 10 and 11 into one box). Every trace name below
-is a real trace in `../DRC-120.blue/120.blue-with-inversion.txts/`, and every operation is the one
-recorded in that file's export header — this is the chain that was actually
-run, with the guards added.
+Eleven steps (the diagram folds 10 and 11 into one box). The single-position
+worked numbers come from `120.blue-with-inversion.txts/`; the acquisition and
+averaging names below use the newer `120.blue.screens.multimeas.mdat`. In
+V5.40 beta, select traces in the **All SPL** legend and right-click the graph
+for `Align SPL...`, `Cross corr align`, `Vector average`, `Vector sum`, and
+`RMS average`.
 
 ---
 
-### Step 1 — Measure L and R
+### Step 1 — Measure the position set
 
 **Do:**
 
 | setting | value |
 |---|---|
-| sweep | **256k log swept sine**, one sweep |
+| sweep | **512k log swept sine**, one sweep |
 | level | **−12 dBFS** |
 | timing | **acoustic timing reference** — required |
 | sample rate | 48 kHz |
-| channels | L and R **separately**, same microphone position |
-| name them | `L.120.Blue`, `R.120.Blue` |
+| channels | L and R **separately at every position** |
+| position names | intended production set: `C`, `L+8`, `R+8`, `F+10`, and the measured rear head limit (`B+20` to `B+23` here) |
+| useful extra | one simultaneous L+R sweep at centre, made at the same per-channel generator level |
 
-Multi-position: sweep all 5 positions per channel, `Align SPL…`, then **RMS
-average** ([§6](#6-one-microphone-position-or-several)). The RMS averages then
-*are* `L` and `R` for everything below.
+Take one L and one R capture at each of the five positions. Repetitions at
+centre are useful but optional. They test repeatability; they do not increase
+the number of spatial samples. Keep the entrance-door state, microphone
+height and orientation unchanged and record the actual position, not the
+intended one.
 
 **Why the acoustic timing reference:** it puts t = 0 at the impulse peak. The
 FDW is centred on the window reference time, and REW's help is explicit that
@@ -935,7 +1029,7 @@ place — quietly, with no error message.
 
 ---
 
-### Step 2 — Set the window. Once. Here. Nowhere else.
+### Step 2 — Set the window on every original capture, before averaging
 
 **Do:** open **IR Windows** on `L`. Change **one** field:
 
@@ -946,9 +1040,17 @@ place — quietly, with no error message.
 | Ref Time | **leave** — it is the IR peak |
 | **Add FDW** | ✓ **ticked, 12 cycles** |
 
-Then press **`Apply to all, keep ref time`**.
+Then press **`Apply to all, keep ref time`**. Apply it to every original L and
+R capture and to any measured L+R capture. Never apply it to `X801`, and do
+not put it back on a derived average.
 
-Apply it to **`L` and `R` only**. Never to `X801`. Never again downstream.
+> ### The ordering is load-bearing
+> `RMS average` is magnitude-only. If the five positions are RMS-averaged
+> first, their individual room impulses are gone and an FDW applied afterwards
+> cannot perform the intended time discrimination. **Window each original
+> capture first; only then form repeated-position and spatial averages.** The
+> earlier edition put the spatial average in step 1 and the FDW in step 2. That
+> was wrong.
 
 **Why only the FDW:** at 12 cycles the FDW is narrower than the 1 s right
 window everywhere above 12 Hz, so it governs the entire working band on its
@@ -972,13 +1074,11 @@ intact.
 > **4.5 mm** — the two speakers are equidistant to the millimetre, exactly as
 > the geometry says.
 >
-> **And this procedure is immune to it regardless.** The target is built with
-> an **RMS average**, which is magnitude-only, and the divisor is taken to
-> **minimum phase** in step 6, which discards measured phase altogether. No
-> step downstream of the window can see a timing offset between L and R.
-> Timing would only matter for a **complex (vector) L+R sum** — which this
-> guide never asks for, and which §2's caveat 1 warns against for its own
-> reasons.
+> Timing matters in exactly one place: step 3 forms a complex L/R average at
+> each microphone position before spatial phase is discarded. That is why the
+> acoustic timing reference is required. After the position-wise sums have
+> been formed, the spatial RMS averages and minimum-phase copies no longer use
+> measured inter-position phase.
 
 **Why this is the only window you will ever set** — three quotes from the Trace
 Arithmetic documentation:
@@ -986,9 +1086,9 @@ Arithmetic documentation:
 - *"The currently applied impulse response window settings are used for each
   trace."* → what you set on `L` and `R` is what every downstream operation
   consumes.
-- *"The result uses the same window settings as trace A"* → derived traces
-  inherit automatically. `LX = L × X801` is built with `L` as trace A, so `LX`
-  already carries `L`'s window. There is nothing to re-apply.
+- *"The result uses the same window settings as trace A"* → derived trace
+  arithmetic already consumes the windowed data. There is nothing to
+  re-apply.
 - *"Any frequency-dependent settings are excluded, applying an FDW to the
   result would amount to applying the window twice."* → re-applying is not
   neutral, it is a second regularisation. REW deliberately clears the FDW flag
@@ -1003,7 +1103,8 @@ The divide's output is deliberately un-windowed. **If the inputs were wrong,
 the output cannot be fixed.** This is why step 2 comes before everything.
 
 > ### ⚠ The window is reversible. The traces built from it are not.
-> Untick the FDW, press Apply Windows, and `L` returns to exactly what it was.
+> Untick the FDW, press Apply Windows, and an original capture returns to
+> exactly what it was.
 > But trace arithmetic creates a **new measurement, frozen at the moment you
 > press the button**. Change the window on `L` afterwards and `LX`, `LX-MP`,
 > the division and the exported WAV all keep the old data — they do not
@@ -1014,14 +1115,83 @@ the output cannot be fixed.** This is why step 2 comes before everything.
 
 ---
 
-### Step 3 — Bake the crossover correction into the measurement
+### Step 3 — Reduce the captures to spatial `L`, spatial `R`, and spatial `SUM`
 
-**Do:**
+Do the operations in this order. An average made by trace arithmetic is a
+frozen result; later changes to an input do not update it.
+
+#### 3a — Collapse the centred repetitions
+
+For L, select the unsuffixed centre trace, `repetition`, and `repetition.2`.
+Verify their impulse overlay; if an offset is visible use **`Cross corr
+align`**, otherwise retain the acoustic-reference timing. Choose **`Vector
+average`** and name the result `L-C`. Repeat for R to make `R-C`.
+
+This is the only place repetitions are averaged. If only one clean centre
+sweep exists, simply rename/copy it as `L-C` or `R-C`. The spatial stage must
+receive one centre representative, not all three repetitions.
+
+#### 3b — Build the L/R combination at each position while phase still exists
+
+For each position select its matching L and R traces and choose **`Vector
+average`**. Do not use `Vector sum`: the average is
+
+```
+SUM-pos = (L-pos + R-pos) / 2
+```
+
+and therefore remains on the same SPL scale as each channel and the target.
+Do not independently `Align SPL...` L against R before this operation; their
+real level ratio is part of the cancellation being measured. Produce
+`SUM-C-calc`, `SUM-L+8`, `SUM-R+8`, and `SUM-F+10`. Once the rear-limit
+capture is corrected, make `SUM-B+20..23`; the existing `SUM-B~+33` is a
+diagnostic and is excluded from production averaging.
+
+If a simultaneous centre L+R sweep exists, prefer it at centre. First make a
+response copy so the raw capture remains untouched. A physical
+sum is `L + R`, 6.0206 dB above REW's `(L + R) / 2`. On the **SPL & Phase**
+graph right-click, open **`SPL offset`**, enter **−6.0206 dB**, then click
+**`Add to data`**; name the result `SUM-C-meas`. Keep `SUM-C-calc` as a check.
+For the present data, measured L+R minus the calculated vector average has a
+median of +6.009 dB over 20–225 Hz. After the exact −6.0206 dB normalization,
+the 1/6-octave magnitude difference is 0.276 dB rms. The exception is a
+razor-thin, non-repeatable disagreement near 49 Hz, which is why the
+simultaneous centre sum is preferable.
+
+#### 3c — Make three spatial RMS averages
+
+For each family separately, select its five position representatives in the
+All SPL legend and choose **`Align SPL...`**. Use **average level**, centre
+frequency **1 kHz**, span **2 octaves** (500 Hz–2 kHz). Then right-click again
+and choose **`RMS average`**:
+
+| selected family | result |
+|---|---|
+| `L-C`, `L-L+8`, `L-R+8`, `L-F+10`, `L-B+20..23` | `L-SP` |
+| `R-C`, `R-L+8`, `R-R+8`, `R-F+10`, `R-B+20..23` | `R-SP` |
+| normalized `SUM-C-meas` plus the four calculated `SUM-pos` traces | `SUM-SP` |
+
+Align each calculated SUM trace as a whole; never alter L and R independently
+inside it. `RMS + phase avg.` is deliberately not used. Spatial phase has no
+single physical meaning, and all three divisors will be made minimum phase in
+step 4.
+
+Exclude the present mislabeled `B+10`/actual `B~+33` traces from all three
+production families. If the rear-limit sweep has not yet been made, use the
+same four positions in `L-SP`, `R-SP`, and `SUM-SP` and label the results
+`4pos`; never mix a five-position channel average with a four-position SUM.
+
+The centre validation is strong enough for the calculated sums: replacing
+the calculated centre with the measured centre changes the five-position SUM
+by 0.174 dB rms below 80 Hz at 1/12 octave, with a 0.97 dB maximum; at 1/6
+octave the figures are 0.104 dB rms and 0.41 dB maximum.
+
+#### 3d — Bake the crossover correction into the channel measurements
 
 1. `File → Import → Impulse Response` → `X801.wav`. Name it `X801 (revised)`.
    **Leave every window control on it alone** — see the warning below.
-2. Trace Arithmetic: `LX` = **A × B**, A = `L.120.Blue`, B = `X801 (revised)`.
-3. Likewise `RX` = `R.120.Blue` × `X801 (revised)`.
+2. Trace Arithmetic: `LX` = **A × B**, A = `L-SP`, B = `X801 (revised)`.
+3. Likewise `RX` = `R-SP` × `X801 (revised)`.
 
 **Why:** you are going to invert the system *as it will actually play*, and it
 will play through the crossover correction. Everything you then look at on
@@ -1041,22 +1211,22 @@ warning.
 > design. An FDW or a shortened right window would truncate the very phase
 > rotation it exists to apply, silently degrading the crossover correction.
 >
-> Note that inheritance is correct here without you doing anything: `LX` is
-> built with **A = L**, so it inherits `L`'s FDW ✓. In step 9, `FLX` is built
-> with **A = X801**, so it inherits `X801`'s window — i.e. none ✓, which is
-> right, because a finished filter should not be windowed.
+> The FDW has already done its work on every original capture before `L-SP`
+> and `R-SP` were formed. Do not reapply it to `LX` or `RX`. In step 9, `FLX`
+> is built with **A = X801**, so it inherits `X801`'s unwindowed state, which
+> is right for a finished filter.
 
 ---
 
 ### Step 4 — Minimum phase, first time
 
-**Do:** on `LX`, **Generate minimum phase** (same control panel as `Trim IR to
-windows`). Name it `LX-MP`. Likewise `RX-MP`.
+**Do:** on `LX`, use **`Generate minimum phase`** and name the new measurement
+`LX-MP`. Likewise make `RX-MP` from `RX` and `SUM-MP` from `SUM-SP`.
 
 | dialog option | set to | why |
 |---|---|---|
 | Cal file effects | **included** | you are modelling the acoustic response as measured, and the mic calibration is part of what the measurement means |
-| **LF tail** | **yes**, corner at **15 Hz** | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
+| **LF tail** | **yes**, at or just below the first measured bin: **16 Hz for the 2026-08-17 set**, 15 Hz for the older set | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
 | HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces already run to 24 kHz = Nyquist, so there is no top-end edge to ring against |
 
 > ### ⚠ The LF tail is not optional — this guide said "no" and was wrong
@@ -1124,10 +1294,10 @@ correctable, before it can reach the division.
 
 **Do:**
 
-1. Select `LX` and `RX` → **RMS + phase average**. Result: `RMS + phase
-   average`.
+1. Select `LX` and `RX` in the All SPL legend, right-click the graph and choose
+   **`RMS average`**. Name the result `L-R RMS average`.
 2. Open it in the **EQ window** and save its shape as the target:
-   `Target RMS + phase average`. Adjust the house curve here if you want one.
+   `Target L-R RMS average`. Adjust the house curve here if you want one.
 
 **Why the L/R average and not each channel's own response:** it is already a
 partial spatial average — a null in the left path is filled by the right — and
@@ -1140,6 +1310,12 @@ would let each chase its own private nulls, which is exactly the failure in
 copy of the measurement. It is also where the house curve goes. Note that a
 target shape is **magnitude only**, which is fine: only its magnitude survives
 step 8.
+
+**Why not `RMS + phase avg.`:** its magnitude would be the same, but its phase
+would be a vector average and the resulting impulse may contain significant
+acausal content. A target is magnitude-only, so attaching phase serves no
+purpose. The earlier edition named this option throughout even though it later
+discarded the phase; plain `RMS average` is the correct beta action here.
 
 #### The target level — let REW calculate it, then check it this way
 
@@ -1388,20 +1564,20 @@ and then two operations per channel (7c, 7d). The reason is §11: below 80 Hz
 the two speakers cancel each other at the seat, and dividing by each channel
 separately deepens that cancellation.
 
-**7a — the sum, and its minimum-phase copy.** Select `LX` and `RX` →
-**Vector average** → name it `SUM`. (If you have a measured `L+R` sweep, use
-`L+R × X801` instead — better. See §11's last note.) Then
-**Minimum phase copy** → `SUM-MP`.
+**7a — select the spatial sum built in step 3.** Use `SUM-MP`. Do **not**
+vector-average `LX` and `RX` here: `L-SP` and `R-SP` are spatial RMS
+averages, so their position phase has already been discarded. The mono sum
+had to be constructed L+R at each position first and spatially RMS-averaged
+second.
 
 **7b — the common filter, below 80 Hz.** Trace Arithmetic, **A over B**:
 
 | field | value |
 |---|---|
-| A | `Target RMS + phase average` |
+| A | `Target L-R RMS average` |
 | B | **`SUM-MP`** |
 | Lower / upper frequency limit | **20 Hz / 80 Hz** |
-| Maximum gain | **0.0 dB** |
-| Regularisation | **leave at 0** — see below |
+| **`Max gain`** | **selected**, value **0.0 dB** |
 
 Name it `Fcommon`. There is only one, shared by both channels.
 
@@ -1409,19 +1585,18 @@ Name it `Fcommon`. There is only one, shared by both channels.
 
 | field | value |
 |---|---|
-| A | `Target RMS + phase average` — *the same A as 7b* |
+| A | `Target L-R RMS average` — *the same A as 7b* |
 | B | **`LX-MP`** (the minimum-phase copy, not `LX`) |
 | Lower / upper frequency limit | **80 Hz / 225 Hz** |
-| Maximum gain | **0.0 dB** |
-| Regularisation | 0 |
+| **`Max gain`** | **selected**, value **0.0 dB** |
 
 Name it `Fper_L`. Repeat with B = `RX-MP` for `Fper_R`.
 
 **7d — combine.** Trace Arithmetic, **A times B**: `Fcommon × Fper_L` → `Fl`.
 Same with `Fper_R` → `Fr`.
 
-Both factors are cut-only, so the product is cut-only: **no maximum-gain
-setting anywhere in this step is above 0.0 dB, and none needs to be.** The
+Both factors are cut-only, so the product is cut-only: **`Max gain` remains
+selected and set to 0.0 dB for both divisions.** The
 80 Hz splice is seamless because REW's band-limit ramps are complementary —
 §11 has the algebra and the measured agreement.
 
@@ -1464,26 +1639,24 @@ whole target curve as a filter.
 > divide itself ran on unsmoothed data, so treat the decibels as indicative
 > and the boost/cut asymmetry as exact.)*
 
-**Why regularisation is left at zero here, and when it would matter.**
-Regularisation puts a floor under the divisor so the quotient cannot run away
-where the divisor is tiny. It is the right tool for one specific disease: **a
-deep null being filled with gain.** With **max gain at 0 dB there is no gain
-anywhere**, so it has nothing to act on — and this is not an argument from
-principle, it is what the deployed filter measures:
+**Why the beta's `Max gain` control is selected.** V5.40 beta no longer has
+the old division `Regularisation` percentage. It has a `Max gain` check box
+and value. Selecting it does two jobs: it clamps boost, and with frequency
+limits it makes the result revert to unity outside the selected band. With
+the value at 0.0 dB the correction is cut-only. This is not merely an argument
+from principle; it is what the deployed filter measures:
 
 | `FLX-trimmed-48k.wav`, 20 – 225 Hz | |
 |---|---|
 | maximum | **+1.19 dB** |
 | minimum | −7.24 dB |
 
-**The filter never boosts. A boost limiter cannot change it.**
-
-Set regularisation only if you raise max gain above 0 dB to allow broad dips to
-be partly filled. Then choose it by the readout, not by a number from a guide —
-REW *"shows the maximum gain corresponding to the regularisation percentage
-next to the control"*, so dial the percentage until that reads the gain you
-intend. For orientation, the depths that exist in this data, measured relative
-to the divisor's own average level over 20–225 Hz:
+**The filter never boosts.** If broad boost is ever deliberately allowed,
+raise the `Max gain` value by the exact amount intended. Do not deselect the
+check box: in current beta that also changes the outside-band behaviour of a
+limited division from unity to the offset numerator. For orientation, the
+depths that exist in this data, measured relative to the divisor's own average
+level over 20–225 Hz:
 
 | divisor | deepest dip below its average |
 |---|---|
@@ -1492,12 +1665,9 @@ to the divisor's own average level over 20–225 Hz:
 | **L, FDW 12 cycles** | **−13.7 dB** |
 | **R, FDW 12 cycles** | **−8.5 dB** |
 
-After step 2 there is no canyon left to regularise — **the FDW has already
-done that job.** Note the trap in these numbers: the small percentages are the
-ones that reach a *raw* razor null, precisely because a razor null is deep. A
-setting of 3 % puts the floor around 30 dB below average, which is 16 dB below
-anything that survives step 2. Small numbers here are not gentle; they are
-inert.
+After step 2 there is no raw canyon left to feed to the division — **the FDW
+has already done that job.** `Max gain = 0.0 dB` then refuses all remaining
+requests to boost a null.
 
 > ### ⚠ The feature that caused 1.3 seconds of ringing is **3.5 dB deep**
 > `FLX-trimmed-48k.wav` at native 0.3662 Hz resolution, around the null. These
@@ -1774,7 +1944,7 @@ identical, and this is where it differs.
 
 | # | applied to | producing | why |
 |---|---|---|---|
-| **1** | `LX`, `RX` | `LX-MP`, `RX-MP` | **the divisor must be minimum phase.** Divide by the raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
+| **1** | `LX`, `RX`, `SUM-SP` | `LX-MP`, `RX-MP`, `SUM-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
 | **2** | `Fl`, `Fr` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
 | **✗** | `X801` | — | **never.** Its magnitude is 0.00000 dB, so its minimum-phase copy is a unit impulse — you would delete the filter entirely |
 
@@ -1799,10 +1969,10 @@ interchangeable.
 
 | operation | result | outside its frequency limits | guards it offers | use it? |
 |---|---|---|---|---|
-| **`A ÷ B`**, A = Target, B = `SUM-MP` | Target ÷ the mono sum | **unity**, blended over one octave | maximum gain, **regularisation** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
-| **`A ÷ B`**, A = Target, B = `LX-MP` | Target ÷ one channel | **unity**, blended over one octave | maximum gain | ✓ **the per-channel filter**, **80**–225 Hz |
-| `A ÷ B`, A = Target, B = `LX-MP` | Target ÷ measurement | **unity**, blended over one octave | maximum gain, **regularisation** | the older single-division form; deepens the 45–56 Hz mono cancellation |
-| `1/A` on `LX-MP` | flat at a chosen level | **unity**, blended over one octave | maximum gain, target level, **exclude notches** | only if you want a flat target and no house curve |
+| **`A ÷ B`**, A = Target, B = `SUM-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| **`A ÷ B`**, A = Target, B = `LX-MP` | Target ÷ one channel | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the per-channel filter**, **80**–225 Hz |
+| `A ÷ B`, A = Target, B = `LX-MP` | Target ÷ measurement | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | the older single-division form; deepens the 45–56 Hz mono cancellation |
+| `1/A` on `LX-MP` | flat at a chosen level | **unity**, blended over one octave | **`Max gain`**, target level, **exclude notches** | only if you want a flat target and no house curve |
 | **1/\|A\|** on `LX-MP` | magnitude inverse | — | — | ✗ **produces a linear-phase result** — symmetric pre-ring, and no phase correction at all |
 | `A ÷ B` with B = `LX` | inverts magnitude **and** room excess phase | | | ✗ acausal, pre-rings, one-point-only |
 
@@ -1821,31 +1991,26 @@ remaining lever — at the cost of the target curve.
 linear phase result."* A linear-phase filter is symmetric: half its energy
 arrives **before** the impulse. That is the opposite of what step 8 is for.
 
-## R5. The three boost guards
+## R5. The two boost guards in V5.40 beta
 
 | guard | belongs to | mechanism | effect on bandwidth | set it to |
 |---|---|---|---|---|
-| **Maximum gain** | division, inversion | hard clamp at a level | **none** — a clamp is a discontinuity, and a discontinuity is a narrow feature | **0 dB** — gives a cut-only filter |
-| **Regularisation** | division | a floor under the divisor, as a % of its average level | none | **0**, unless max gain is above 0 dB |
+| **`Max gain`** | division, inversion | optional hard clamp at a level; for limited division it also selects unity outside the limits | **none** — a clamp is a discontinuity, and a discontinuity is a narrow feature | **selected, 0.0 dB** — gives a cut-only, band-limited filter |
 | **Exclude notches** | inversion only | drops notch-like features from the inverse | removes them entirely | off |
 
-**All three limit boost. None of them limits bandwidth.** So none of them can
+**Both limit boost. Neither limits bandwidth.** So neither can
 prevent the failure in §5, which was a *dip* — 0.73 Hz wide, 3.5 dB from rim
 to bottom — in a filter that never boosted at all. **The FDW is not a backstop
 to these controls; these controls are a footnote to the FDW.**
 
 With 12 cycles applied at step 2 the 38.3 dB null is already an 11.7 dB dip and
-the deepest point in the whole 20–225 Hz divisor is 13.7 dB below its average
-level, so the clamp barely engages and there is nothing left for a floor to
-sit under.
+the deepest point in the whole 20–225 Hz divisor is 13.7 dB below its average.
+The 0.0 dB clamp then refuses to fill it.
 
-REW's own framing of regularisation:
-
-> *"Applying regularisation limits the boost which occurs when the divisor
-> becomes very small (or zero!), **such as where the divisor has notches in
-> its response**, and so produces a more stable and manageable result. The
-> maximum gain corresponding to the regularisation percentage is shown next to
-> the control, at 25% (the maximum setting) no gain is allowed."*
+The obsolete `Regularisation` percentage belonged to older REW versions. In
+V5.40 beta 25 and later division uses a `Max gain` figure, and gain limiting
+can be disabled by deselecting its check box. Do not translate old percentage
+recipes into the current UI; set the desired maximum gain directly.
 
 ## R6. Getting the room's decay figure
 

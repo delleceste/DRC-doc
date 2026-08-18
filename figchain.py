@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Signal-flow diagram of the REW inversion chain, for REW-INVERSION.md.
 
-Every box is a REW trace that really exists in ../DRC-120.blue/120.blue-with-inversion.txts/ -- the
-names and the operations are taken from the '* Note:' headers of those
-exports, not invented.  Three things the diagram is meant to make obvious:
+The diagram follows the multi-position V5.40 beta procedure. Three things it
+is meant to make obvious:
 
-  * the FDW is applied once, to L and R only (the shaded band),
+  * the FDW is applied once, to every original capture (the shaded band),
+  * L/R vector averaging is position-wise; spatial averaging is RMS, and
   * minimum phase is taken exactly twice (the two filled boxes), and
   * X801 is multiplied in twice and is never itself windowed or inverted.
 
@@ -59,8 +59,8 @@ Y = dict(meas=11.70, fdw=10.62, lx=9.50, mp=8.42, avg=7.35, tgt=6.50,
 
 # ---- 1  measure -------------------------------------------------------
 step(Y['meas'], '1', 'measure')
-box(XL, Y['meas'], 2.6, 0.74, 'L.120.Blue\nacoustic timing ref')
-box(XR, Y['meas'], 2.6, 0.74, 'R.120.Blue\nacoustic timing ref')
+box(XL, Y['meas'], 2.6, 0.74, 'L at 4 / 5 positions\n+ centre repetitions')
+box(XR, Y['meas'], 2.6, 0.74, 'R at 4 / 5 positions\n+ centre repetitions')
 
 # ---- 2  the one and only window ---------------------------------------
 step(Y['fdw'], '2', 'window', WIN)
@@ -68,17 +68,17 @@ ax.add_patch(Rectangle((XL - 1.75, Y['fdw'] - 0.44), (XR + 1.75) - (XL - 1.75),
                        0.88, ec=WIN, fc='#eaf2f6', lw=1.2, zorder=1))
 ax.text(XC, Y['fdw'] + 0.15, 'Add FDW — 12 cycles', ha='center', va='center',
         fontsize=11, color=WIN, fontweight='bold', zorder=4)
-ax.text(XC, Y['fdw'] - 0.21, 'Apply to all, keep ref time   ·   the only place '
-        'a window is ever set', ha='center', va='center', fontsize=8.2,
+ax.text(XC, Y['fdw'] - 0.21, 'Apply to all, keep ref time   ·   before any average',
+        ha='center', va='center', fontsize=8.2,
         color=WIN, zorder=4)
 for x in (XL, XR):
     arrow(x, Y['meas'] - 0.41, x, Y['fdw'] + 0.46)
     arrow(x, Y['fdw'] - 0.46, x, Y['lx'] + 0.38)
 
-# ---- 3  bake the crossover in -----------------------------------------
-step(Y['lx'], '3', 'crossover')
-box(XL, Y['lx'], 2.3, 0.62, 'LX  =  L × X801')
-box(XR, Y['lx'], 2.3, 0.62, 'RX  =  R × X801')
+# ---- 3  spatial reduction and crossover -------------------------------
+step(Y['lx'], '3', 'average')
+box(XL, Y['lx'], 2.55, 0.78, 'L-SP: RMS positions\nLX = L-SP × X801', fs=8.7)
+box(XR, Y['lx'], 2.55, 0.78, 'R-SP: RMS positions\nRX = R-SP × X801', fs=8.7)
 box(XC, Y['lx'], 1.50, 0.92, 'X801 (revised)\nall-pass, 0.000 dB\nnever windowed',
     ec=XO, fc='#eef4ec', fs=8.0)
 arrow(XC - 0.81, Y['lx'], XL + 1.21, Y['lx'], c=XO)
@@ -88,14 +88,15 @@ arrow(XC + 0.81, Y['lx'], XR - 1.21, Y['lx'], c=XO)
 step(Y['mp'], '4', 'min phase 1', MP)
 box(XL, Y['mp'], 2.6, 0.62, 'LX-MP', ec=MP, fc='#fbeee9', bold=True)
 box(XR, Y['mp'], 2.6, 0.62, 'RX-MP', ec=MP, fc='#fbeee9', bold=True)
+box(XC, Y['mp'], 1.62, 0.66,
+    'SUM-MP\nvector L/R per pos → RMS pos', ec=MP, fc='#fbeee9', fs=6.6,
+    bold=True)
 for x in (XL, XR):
     arrow(x, Y['lx'] - 0.36, x, Y['mp'] + 0.36, c=MP)
-ax.text(XC, Y['mp'], 'drop the room\'s\nexcess phase', ha='center',
-        va='center', fontsize=7.9, color=MP, style='italic')
 
 # ---- 5  target --------------------------------------------------------
 step(Y['avg'], '5', 'target')
-box(XC, Y['avg'], 3.7, 0.56, 'RMS + phase average of LX, RX')
+box(XC, Y['avg'], 3.7, 0.56, 'RMS average of LX, RX')
 box(XC, Y['tgt'], 3.7, 0.56, 'Target   (EQ window target shape)', lw=1.4)
 arrow(XL + 1.17, Y['lx'] - 0.20, XC - 1.30, Y['avg'] + 0.32)
 arrow(XR - 1.17, Y['lx'] - 0.20, XC + 1.30, Y['avg'] + 0.32)
@@ -112,11 +113,10 @@ arrow(XR, Y['mp'] - 0.36, XR, Y['chk'] + 0.40, c=CHK)
 # ---- 7  the divide ----------------------------------------------------
 step(Y['div'], '7', 'invert')
 for x, n, d in ((XL, 'Fl', 'LX-MP'), (XR, 'Fr', 'RX-MP')):
-    box(x, Y['div'], 3.0, 1.06, '%s  =  Target ÷ %s\n\n' % (n, d), lw=1.3,
-        bold=True, fs=10)
-    ax.text(x, Y['div'] - 0.16, '20 – 225 Hz\nmax gain 0 dB  ·  reg 0',
-            ha='center', va='center', fontsize=8.3, color=INK, zorder=4,
-            linespacing=1.35)
+    box(x, Y['div'], 3.0, 1.06,
+        '%s = (Target ÷ SUM-MP) 20–80\n× (Target ÷ %s) 80–225\n'
+        'Max gain selected: 0.0 dB' % (n, d), lw=1.3,
+        bold=True, fs=7.9)
     arrow(x, Y['chk'] - 0.40, x, Y['div'] + 0.57)
 arrow(XC - 1.30, Y['tgt'] - 0.32, XL + 1.20, Y['div'] + 0.55)
 arrow(XC + 1.30, Y['tgt'] - 0.32, XR - 1.20, Y['div'] + 0.55)
@@ -154,8 +154,8 @@ ax.text(XC, Y['out'] - 0.17, './drc_acceptance.py  FLX-trimmed-48k.wav  '
 arrow(XL, Y['bake'] - 0.36, XC - 1.7, Y['out'] + 0.44)
 arrow(XR, Y['bake'] - 0.36, XC + 1.7, Y['out'] + 0.44)
 
-ax.text(XC, -0.95, 'Every name is a real trace in ../DRC-120.blue/120.blue-with-inversion.txts/ ; the '
-        'operations are the ones recorded in their export headers.',
+ax.text(XC, -0.95, 'V5.40 beta: vector-average repetitions and each position\'s L/R; '
+        'RMS-average different positions.',
         ha='center', va='center', fontsize=7.7, color=MUTED, style='italic')
 
 fig.savefig('fig-chain.png', dpi=150, facecolor='white',
