@@ -1,0 +1,70 @@
+% Preamble for building NOTES.pdf with pandoc + pdflatex (no xelatex here).
+% pdflatex has no native Unicode, so every non-ASCII glyph used in NOTES.md is
+% mapped explicitly below.  Regenerate the list with:
+%   python3 -c "import collections;s=open('NOTES.md').read();print(sorted({c for c in s if ord(c)>127}))"
+\usepackage{amsmath,amssymb}
+\usepackage{newunicodechar}
+\usepackage{etoolbox}
+\usepackage{booktabs,longtable}
+
+% --- long file paths in typewriter must be breakable or they run off the page
+%     (e.g. ../DRC-120.blue/120-blue-with-inversion.mdat overflowed by 111pt) ---
+\usepackage[htt]{hyphenat}
+\setlength{\emergencystretch}{3em}
+
+% --- wide tables: shrink so the frequency tables fit the text block ---
+\AtBeginEnvironment{longtable}{\footnotesize}
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.05}
+
+% --- figures: never wider than the text block ---
+% graphicx is loaded here explicitly: pandoc only pulls it in when the document
+% contains an image, so \setkeys{Gin} fails on documents that have none.
+\usepackage{graphicx}
+\setkeys{Gin}{width=\linewidth,keepaspectratio}
+
+% --- Unicode mappings ---
+\newunicodechar{−}{\ensuremath{-}}          % U+2212 minus
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{≈}{\ensuremath{\approx}}
+\newunicodechar{≡}{\ensuremath{\equiv}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≪}{\ensuremath{\ll}}
+\newunicodechar{≲}{\ensuremath{\lesssim}}
+\newunicodechar{≳}{\ensuremath{\gtrsim}}
+\newunicodechar{∝}{\ensuremath{\propto}}
+\newunicodechar{∫}{\ensuremath{\int}}
+\newunicodechar{∗}{\ensuremath{*}}
+\newunicodechar{⊛}{\ensuremath{\circledast}}
+\newunicodechar{φ}{\ensuremath{\varphi}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{ω}{\ensuremath{\omega}}
+\newunicodechar{Ω}{\ensuremath{\Omega}}
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{π}{\ensuremath{\pi}}
+\newunicodechar{λ}{\ensuremath{\lambda}}
+\newunicodechar{τ}{\ensuremath{\tau}}
+\newunicodechar{ν}{\ensuremath{\nu}}
+\newunicodechar{₀}{\ensuremath{_0}}
+\newunicodechar{₁}{\ensuremath{_1}}
+\newunicodechar{₄}{\ensuremath{_4}}
+\newunicodechar{³}{\ensuremath{^3}}
+\newunicodechar{¹}{\ensuremath{^1}}
+\newunicodechar{⁴}{\ensuremath{^4}}
+\newunicodechar{⁻}{\ensuremath{^-}}
+\newunicodechar{√}{\ensuremath{\surd}}
+\newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{×}{\ensuremath{\times}}
+\newunicodechar{÷}{\ensuremath{\div}}
+\newunicodechar{±}{\ensuremath{\pm}}
+\newunicodechar{°}{\textdegree}
+\newunicodechar{§}{\S}
+\newunicodechar{…}{\ldots}
+\newunicodechar{✓}{\ensuremath{\checkmark}}
+\newunicodechar{✗}{\ensuremath{\times}}
+\newunicodechar{⚠}{\textbf{[!]}}

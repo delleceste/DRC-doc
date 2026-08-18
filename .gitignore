@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.core
+core.*
+*.aux
+*.log
+*.out
+*.toc
