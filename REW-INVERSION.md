@@ -292,16 +292,22 @@ feature that causes the damage.
    cancel and **manufactures new nulls** — the exact disease you are trying to
    cure. The **RMS average** is a power average, so a null at one position is
    filled by the others; that is the behaviour you want.
-   `RMS + phase avg.` is not a better spatial average. It uses the wanted RMS
-   magnitude but attaches a vector-averaged phase which has no physical
-   meaning across positions and may produce a substantially acausal impulse.
-   The inversion later generates minimum phase anyway, so use the plain
+   `RMS + phase avg.` is not a better spatial average. Its magnitude is the
+   one you want, but the phase it attaches is a vector average, which across
+   positions means nothing — and REW warns it breaks the magnitude/phase
+   relationship badly enough to need larger left windows
+   ([3d](#3d--average-across-positions--three-rms-averages) quotes it). The
+   inversion generates minimum phase anyway, so use the plain
    **`RMS average`** action.
-2. **Level-align first.** In V5.40 beta select the traces in the All SPL
-   legend, right-click the graph and choose **`Align SPL...`**. REW again:
+2. **Level differences between positions are weighting, not response.** REW
+   suggests removing them with `Align SPL...` before averaging:
    > *"If the measurements were made at different positions (spatial averaging)
    > it is usually best to first use the **Align SPL…** feature to remove
    > overall level differences due to different source distances."*
+
+   REW says no more than that, and how much it matters depends entirely on how
+   far apart the positions are — [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)
+   measures it for a one-seat cluster and derives the rule.
 3. **Spacing buys you less at low frequency than you would like.** Two points
    decorrelate when they are a useful fraction of a wavelength apart:
 
@@ -316,47 +322,78 @@ feature that causes the damage.
    null-depth sensitivity above — but do not expect the 30 Hz region to be
    cleaned up by moving the mic 30 cm.
 4. **It is not free.** 5 positions × 2 channels = 10 sweeps, and one
-   contaminated position (mic bumped, door opened) poisons the average
-   silently.
+   contaminated position — mic bumped, chair moved, room state changed
+   halfway — poisons the average silently.
 
-### Repeated sweeps at the same position are a different operation
+### How far apart? Measure it, do not guess
 
-The three centred captures in the 2026-08-17 set — the unsuffixed trace,
-`repetition`, and `repetition.2` — are **not three spatial positions**. They
-measure repeatability at one position. Their 20–225 Hz overall levels agree
-within 0.04 dB; after 1/6-octave averaging their pairwise differences are only
-0.09–0.24 dB rms. None is an outlier.
+A spread wider than the seat optimises a place nobody's head goes, and a
+spread narrower than the seat does nothing at all. Measured in this room: how
+much the mono response actually changes when the microphone moves, rms over
+1/6-octave bands, against the centre point.
 
-Their headers are not equally explicit about the entrance door: the
-unsuffixed centre and simultaneous L+R say `entrance door open`, while the two
-repetition notes omit the state. Confirm that the door actually remained open
-before combining them. If it changed, retain only repetitions made in the
-chosen listening condition; response similarity is not permission to average
-different room states.
+| microphone offset | 20–80 Hz | 80–225 Hz |
+|---|---:|---:|
+| 8 cm sideways | 0.40–0.44 dB | 0.52–0.56 dB |
+| 10 cm forward | 0.48 dB | 0.64 dB |
+| **33 cm back** | **2.02 dB** | **1.70 dB** |
 
-Keep the information but give the centre only one spatial vote:
+**Below ~10 cm there is almost nothing to average.** The λ/4 table above says
+why: at 50 Hz a decorrelating distance is 1.7 m, and 8 cm is 5% of it. Useful
+decorrelation starts somewhere around 20–30 cm, which is also where the
+listener's head actually goes.
 
-1. after applying the FDW to the original captures, select the three centred
-   L traces;
-2. verify that their impulses overlay. They share an acoustic timing
-   reference, so do not shift them merely because an alignment action exists;
-   use **`Cross corr align`** only if the overlay shows an actual offset;
-3. choose **`Vector average`** and name the result `L-C`;
-4. repeat for R, producing `R-C`.
+Across the three offsets available here the difference grows roughly
+**linearly with distance** — about **0.09 dB rms per centimetre** at the FDW's
+own resolution:
 
-`Vector average` is correct here because these are repeated, coherently timed
-measurements of the same source at the same point. It reduces uncorrelated
-measurement noise. A plain `RMS average` is an acceptable magnitude-only
-fallback, and choosing any one of the three would change very little in this
-dataset, but putting all three directly into the spatial average would weight
-the centre 3/7 instead of 1/5.
+| offset | 8 cm | 10 cm | 20 cm | 33 cm |
+|---|---|---|---|---|
+| difference from centre | ~1.1 dB | ~0.9 dB | **~1.8 dB** (interpolated) | ~3.0 dB |
+
+So ±20 cm carries about twice the information of ±8 cm, and ±8 cm is close to
+nothing. That, and the head envelope above, is why the recommendation is 20 cm
+and not 8.
+
+*(One caveat this dataset cannot settle: its only large offset is also its
+only large front-to-back offset, and front-to-back is the axis that changes
+the microphone's distance to the boundaries and so moves in-band interference.
+Distance and axis are confounded here. Measuring ±20 cm on both axes separates
+them.)*
+
+> ### 20 cm is smaller than most guides recommend, on purpose
+> Mainstream practice assumes you are correcting a **listening area**. Dirac
+> Live's arrangements run to 9, 13 and 17 positions; the moving-microphone
+> literature and most REW community guides suggest a cluster of roughly 0.5 m
+> radius. Spread that wide and you decorrelate far more than the table above,
+> which is exactly the point when several people are listening.
+>
+> The cost is stated plainly in those same sources: a wide spread
+> over-smooths, and under-corrects the seat you actually sit in. **This is a
+> one-seat system**, so the cluster is sized to one head. If you want the
+> robustness of the wider spread, take it — but understand you are buying
+> insurance against a head position nobody occupies, and paying for it in
+> accuracy at the one that is.
+>
+> The physics does not change either way, and nor does anything in Part III.
+> Only the number of sweeps and the spacing move.
+
+**A useful independent check: the moving-microphone method.** Play pink noise,
+set the RTA to a long-term ("Forever") average, and walk the microphone slowly
+through the listening volume. It converges to the same magnitude as an RMS
+average of many discrete captures in that volume, faster and more repeatably,
+which makes it a good way to confirm that your five-position average is not an
+accident of where the five points happened to land.
+
+It cannot replace the sweeps here. MMM yields **magnitude only** — no impulse
+response — so it can carry neither the FDW of step 2 nor the position-wise
+complex sum of [3c](#3c--form-the-mono-sum-at-each-position). Use it to check
+the answer, not to produce it.
 
 > ### Size the cluster from how the listener actually sits
-> Not from what decorrelates best — a spread wider than the seat optimises a
-> place nobody's head goes. On this sofa the honest envelope is **asymmetric**:
-> sideways the head barely moves (ear separation is 17 cm, and you do not slide
-> across the seat), but **front-to-back it moves ~20 cm** — slouching, and one
-> or two cushions behind the back push you that far forward.
+> On this sofa the head moves roughly **20 cm front-to-back** — slouching, and
+> one or two cushions behind the back push you that far forward — and rather
+> less sideways, though 20 cm each way still lands inside the seat.
 >
 > That is not a small effect. The 2026-04-28 sweeps were taken about 20 cm
 > behind the 2026-08-10 ones — both perfectly normal seating — and below 200 Hz
@@ -368,25 +405,22 @@ the centre 3/7 instead of 1/5.
 
 ### Recommended
 
+Five positions, all at ear height: the listening position and four points
+**20 cm** away from it — forward, back, left, right.
+
 | | |
 |---|---|
-| **positions** | **5** — the listening position plus four points that map the positions the listener's head actually occupies. Symmetry is not required |
-| **per channel** | yes, L and R separately; do not average L with R at this stage |
-| **combine with** | **RMS average**, after **Align SPL…** |
-| **repetitions** | first collapse repetitions at one point into one representative trace; never let repeat count become accidental spatial weighting |
-| **then** | build spatial `L`, spatial `R`, and the spatial mono-sum divisor as described in Part III; the last one must be built position by position before spatial phase is discarded |
+| **positions** | **5** — `C`, `F20`, `B20`, `L20`, `R20`. 20 cm is the smallest offset that measurably decorrelates in this room, and it is inside the seat |
+| **per channel** | yes, L and R **separately** at every position; never average L with R at this stage |
+| **sweeps** | 10, plus one optional simultaneous L+R at `C` |
+| **combine with** | **RMS average across positions**. Level alignment is optional at this cluster size — [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) has the measurement |
+| **then** | build spatial `L`, spatial `R` and the spatial mono-sum divisor as [step 3](#step-3--reduce-the-captures-to-three-divisors) prescribes; the sum must be formed position by position, before spatial phase is discarded |
 
-For the current set the recorded front-wall distances identify the nominal
-`B+10` capture as approximately **`B+33`**: 4.33 m at centre and 4.66 m at the
-back point. That is about 10 cm behind the rear limit the listener's head can
-actually reach, so **do not include it with equal 1/5 weight**. Keep and rename
-it `B~+33 cm — diagnostic, excluded`; it is useful for judging robustness but
-not as occupied-seat data. Remeasure at the real rear limit, approximately
-`B+20` to `B+23`, and use that trace in the production five-position average.
-Until then, a clearly labelled four-position average is more honest than
-silently optimising a position outside the listening envelope. Do not invent
-the missing response by interpolating centre and `B+33`: interference does
-not vary linearly with distance.
+**Keep everything except the microphone fixed** for the whole set: speaker
+positions, gain, room state, mic height and orientation. Record the actual
+offsets, and check them against the front-wall distance REW writes into each
+measurement note — a mis-stepped position is invisible in the response and
+obvious in the distance.
 
 ### If you stay single-point
 
@@ -448,6 +482,52 @@ no longer doing two jobs at once:
 
 Never off, and never above ~25 — beyond that you are no longer regularising
 anything and §5 becomes available again.
+
+### Measured: the two really are independent
+
+The intuition that windowing and averaging are two denoisers doing the same
+job, so that stacking them over-cleans the data, is worth testing rather than
+assuming. Two measurements settle it.
+
+**The FDW does not remove what averaging removes.** How far each position sits
+from the centre point, mono sum, 20–225 Hz rms:
+
+| offset | raw | FDW 12 | FDW 20 |
+|---|---:|---:|---:|
+| 8 cm lateral | 0.73 dB | **1.17** | 1.09 |
+| 8 cm lateral | 1.01 | 1.07 | 1.20 |
+| 10 cm forward | 0.86 | 0.86 | 0.84 |
+| 33 cm back | 2.71 | **2.96** | 2.94 |
+
+Windowing leaves the position differences unchanged or slightly **larger** —
+[§8](#8-how-much-regularisation--choosing-the-fdw-cycles)'s own mechanism
+running in your favour, since gating late energy exposes the early
+interference that is precisely what moves when the microphone moves. Whatever
+spatial averaging is removing, the FDW has not already removed it.
+
+**And the FDW does not shift the tonal target.** The target is built from the
+same windowed traces as the divisor, so the window largely cancels in the
+ratio. Building the filter from windowed traces and from raw traces, 20–225 Hz:
+
+```
++0.01 dB mean       0.56 dB rms       1.95 dB max
+```
+
+The broad tonal balance is identical to a hundredth of a decibel; only narrow
+structure changes, which is the entire purpose. The concern that windowing
+makes you *"EQ toward a target the room does not deliver"* is real for a
+workflow that windows the divisor and not the target — this one windows both.
+
+The direct-sound effect people have in mind is real, but it lives above the
+correction band. FDW 12 minus raw, per octave:
+
+| 20–32 | 32–63 | 63–125 | 125–250 | 250–500 | **500–1k** | 1–2k Hz |
+|---|---|---|---|---|---|---|
+| −0.6 | −1.1 | −2.1 | −1.3 | −2.2 | **−3.1 / −5.4** | −2.7 |
+
+Inside 20–225 Hz the window costs 1.4–1.6 dB overall and room gain survives.
+Above 250 Hz it starts genuinely stripping the reflected field — which is one
+more reason the correction band stops at 225 Hz.
 
 ## 8. How much regularisation — choosing the FDW cycles
 
@@ -607,6 +687,27 @@ smoothing menu.
 > **with that smoothing selected in the export dialog**, then re-import. The
 > exported numbers carry the smoothing, and on re-import they *are* the data.
 > This is redundant if the FDW is set, and is listed as optional in step 4a.
+
+> ### "Smooth the spatial average instead of windowing the captures"
+> A reasonable-sounding alternative: average the raw captures, then apply Var
+> or 1/6-octave smoothing to `L-SP` and `R-SP` to tame the residual ripple.
+> It does not work here, for two reasons that stack.
+>
+> **Smoothing does not reach the division.** That is this section's whole
+> subject: REW computes trace arithmetic on the impulse response and hands the
+> result A's smoothing only for display. You would be looking at a smooth
+> trace and dividing by a rough one.
+>
+> **And it cannot cap the filter's Q anyway.** Smoothing a magnitude average
+> is a frequency-domain operation on a trace that has already lost its time
+> information; the FDW is a time gate applied while the time information still
+> exists. [§7](#7-with-several-positions-do-you-still-need-the-fdw) measures
+> the difference, and step 2 measures what happens if you swap the order.
+>
+> The advice is sound in the workflow it comes from — deriving an EQ *target*
+> for REW's own filter matcher, which carries filter-count, max-Q and max-boost
+> guards of its own. A bare inversion has none of them, which is what
+> [§5](#5-the-failure-this-guide-exists-to-prevent) looks like.
 
 **And do not use REW's recommended smoothing here.** "Variable smoothing is
 recommended for responses that are to be equalised" is advice for the
@@ -847,11 +948,18 @@ The distinction between beta's two similarly named actions matters:
 | `Vector sum` | `L + R` | no — 6.0206 dB higher and needs explicit normalization |
 
 A simultaneous physical L+R sweep is also `L + R`, so subtract **6.0206 dB**
-before substituting it for a vector average. The earlier edition called the
-measured sweep the honest divisor but omitted this normalization; using it
-directly would ask for roughly 6 dB of spurious common cut.
+before substituting it for a vector average. Use it un-normalised and you ask
+for roughly 6 dB of spurious common cut across the whole 20–80 Hz band — and
+`Max gain 0.0 dB` will not stop you, because it clamps boost, not cut.
 
-The 2026-08-17 centre set provides the direct check. Measured L+R sits a median
+Two independent confirmations of the figure. **The 185 cm set**, which contains
+a genuine measured `L+R` sweep beside its two channels: the complex sum of `L0`
+and `R0` reproduces the measured `LR` to **0.502 dB rms** over 20–250 Hz
+(median +0.010 dB), and that measured sweep sits **+6.031 dB** above the vector
+average — a different room, REW version and signal chain, landing on the same
+number.
+
+**And the 2026-08-17 centre set.** Measured L+R sits a median
 **6.009 dB** above the calculated L/R vector average over 20–225 Hz, versus
 the theoretical 6.0206 dB. After normalization:
 
@@ -992,34 +1100,96 @@ be worth chasing, and localisation does depend on it.
 
 ![The REW inversion chain](fig-chain.png)
 
-Eleven steps (the diagram folds 10 and 11 into one box). The single-position
-worked numbers come from `120.blue-with-inversion.txts/`; the acquisition and
-averaging names below use the newer `120.blue.screens.multimeas.mdat`. In
-V5.40 beta, select traces in the **All SPL** legend and right-click the graph
-for `Align SPL...`, `Cross corr align`, `Vector average`, `Vector sum`, and
-`RMS average`.
+Eleven steps (the diagram folds 10 and 11 into one box). Steps 1 to 3 turn ten
+sweeps into the three traces everything else divides by; steps 4 to 11 are the
+same whether you measured one position or five.
+
+**Where the actions live.** In V5.40 beta, select the traces you want in the
+**All SPL** legend, then right-click the graph: `Align SPL...`,
+`Cross corr align`, `Vector average`, `Vector sum`, `RMS average` and
+`RMS + phase avg.` are all on that menu. `Trace arithmetic`,
+`Generate minimum phase` and `SPL offset` are reached from the measurement's
+own controls.
+
+Worked numbers come from `120.blue-with-inversion.txts/` (single position) and
+`120.blue.screens.multimeas.mdat` (the multi-position set).
 
 ---
 
-### Step 1 — Measure the position set
+### Step 1 — Measure the five positions
 
 **Do:**
+
+**Before the first sweep:** level-match the two speakers at the source, with
+REW's generator and an SPL meter, and then leave the volume path alone for the
+whole session. From here on the measured L-versus-R level difference is a
+property of the room and the seat, and [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)
+will refuse to touch it — so it had better not also contain an electrical
+imbalance you could have removed.
 
 | setting | value |
 |---|---|
 | sweep | **512k log swept sine**, one sweep |
 | level | **−12 dBFS** |
 | timing | **acoustic timing reference** — required |
+| **reference speaker** | **the same one for every sweep of both channels.** Measure L with `Output = L, Ref = L`; measure R with `Output = R, Ref = L` |
 | sample rate | 48 kHz |
-| channels | L and R **separately at every position** |
-| position names | intended production set: `C`, `L+8`, `R+8`, `F+10`, and the measured rear head limit (`B+20` to `B+23` here) |
-| useful extra | one simultaneous L+R sweep at centre, made at the same per-channel generator level |
+| channels | L and R **separately**, at every position |
+| positions | `C`, and four points **20 cm** away — `F20` forward, `B20` back, `L20` left, `R20` right, all at ear height |
+| trace names | channel first, then position: `L C`, `R C`, `L F20`, `R F20`, … |
+| useful extra | one simultaneous **L+R** sweep at `C`, at the same per-channel generator level |
 
-Take one L and one R capture at each of the five positions. Repetitions at
-centre are useful but optional. They test repeatability; they do not increase
-the number of spatial samples. Keep the entrance-door state, microphone
-height and orientation unchanged and record the actual position, not the
-intended one.
+That is ten sweeps, eleven with the optional sum. Work position by position —
+move the microphone once, take L then R — so that the two channels at a point
+always share the same microphone placement.
+
+**Between sweeps, change nothing but the microphone.** Same speaker
+positions, same gain, same room state, same mic height and orientation. Write
+the actual offset into the measurement note, and check it against the
+front-wall distance: `F20` and `B20` must differ from `C` by 20 cm, `L20` and
+`R20` must not differ from `C` at all.
+
+> ### ⚠ One reference speaker for the whole set — this is what makes 3c possible
+> The acoustic timing reference does two jobs. It puts t = 0 at the impulse
+> peak, which is what the FDW needs. And, *if every sweep of both channels
+> references the same speaker*, it puts L and R on one common clock — which is
+> the only reason the position-wise complex sum in
+> [3c](#3c--form-the-mono-sum-at-each-position) means anything.
+>
+> Switch reference speakers between the L pass and the R pass and each channel
+> gets its own arbitrary t = 0. The magnitude averages survive that; the mono
+> sum does not, and it fails silently.
+>
+> It is recorded in every export header, so it is checkable after the fact:
+> ```sh
+> grep -o 'Acoustic reference played from [A-Za-z0-9 ]*' *.txt
+> ```
+> Every line must name the same speaker. On the 2026-08-17 set all fifteen
+> captures read `played from DAC8STEREO L`.
+>
+> **A second check, from the same headers.** With the left speaker as the
+> reference, `grep -o 'Delay [-0-9.]* ms' *.txt` should show two distinct
+> populations: the **L captures sit at essentially zero**, because source and
+> reference are the same speaker, while the **R captures carry the real
+> left-to-right arrival difference at that seat** and swing with the lateral
+> positions. On the 2026-08-17 set the R captures read −14 mm at centre,
+> **+43 mm** 8 cm to the left and **−84 mm** 8 cm to the right — the right
+> speaker getting farther as you move left, which is the geometry. If the R
+> captures also sit at zero, the reference speaker was switched between passes
+> and 3c has nothing to work with.
+
+**Microphone orientation:** point it at the ceiling and load the 90°
+calibration file, so the capture is insensitive to exact aiming. In the
+20–225 Hz correction band this changes almost nothing — the capsule is
+omnidirectional down there — but the 500 Hz–2 kHz band that
+[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) may use for
+level alignment is squarely in the region where aiming does matter, so pick
+one convention and hold it for the whole set.
+
+**Repeat sweeps are optional.** Two or three captures at the same point test
+repeatability and reduce noise; they are *not* extra spatial samples, and
+[step 3a](#3a--collapse-any-repeat-sweeps-optional) collapses them to one
+trace before the spatial stage sees them.
 
 **Why the acoustic timing reference:** it puts t = 0 at the impulse peak. The
 FDW is centred on the window reference time, and REW's help is explicit that
@@ -1044,13 +1214,37 @@ Then press **`Apply to all, keep ref time`**. Apply it to every original L and
 R capture and to any measured L+R capture. Never apply it to `X801`, and do
 not put it back on a derived average.
 
-> ### The ordering is load-bearing
-> `RMS average` is magnitude-only. If the five positions are RMS-averaged
-> first, their individual room impulses are gone and an FDW applied afterwards
-> cannot perform the intended time discrimination. **Window each original
-> capture first; only then form repeated-position and spatial averages.** The
-> earlier edition put the spatial average in step 1 and the FDW in step 2. That
-> was wrong.
+> ### ⚠ The order is load-bearing: window first, average second
+> The tempting alternative is to average the raw captures and apply the FDW to
+> `L-SP` and `R-SP` afterwards. It is not available, and it would be wrong if
+> it were.
+>
+> **It is not available.** `RMS average` discards phase — REW: *"Phase is not
+> taken into account, measurements are treated as incoherent… the result has
+> the magnitude data from the source measurement and no phase data."* No phase
+> means no impulse response, and an FDW is a window on an impulse response.
+> REW also clears the flag on derived traces: *"applying an FDW to the result
+> would amount to applying the window twice."*
+>
+> **And it would be wrong.** The FDW discriminates in *time*. Each position
+> has its own impulse response with its own arrival times, because the
+> microphone moved. Window each capture and every reflection is gated where it
+> actually lands; average first and those arrivals have been merged into a
+> magnitude ripple with no time coordinate left, so a window applied afterwards
+> gates an artefact. The two orders are not the same operation — measured on
+> the five L captures at 12 cycles:
+>
+> | | window-then-average vs average-then-window |
+> |---|---|
+> | 20–40 Hz | 0.26 dB max |
+> | 40–80 Hz | 4.01 dB max |
+> | 80–150 Hz | 0.68 dB max |
+> | **150–225 Hz** | **13.96 dB max** |
+> | 20–225 Hz overall | **2.05 dB rms** |
+>
+> **Window each of the ten original captures. Only then form any average.**
+> There is no way back from getting this the wrong way round except to redo
+> the chain.
 
 **Why only the FDW:** at 12 cycles the FDW is narrower than the 1 s right
 window everywhere above 12 Hz, so it governs the entire working band on its
@@ -1074,11 +1268,10 @@ intact.
 > **4.5 mm** — the two speakers are equidistant to the millimetre, exactly as
 > the geometry says.
 >
-> Timing matters in exactly one place: step 3 forms a complex L/R average at
-> each microphone position before spatial phase is discarded. That is why the
-> acoustic timing reference is required. After the position-wise sums have
-> been formed, the spatial RMS averages and minimum-phase copies no longer use
-> measured inter-position phase.
+> Timing matters in exactly one place: [3c](#3c--form-the-mono-sum-at-each-position)
+> forms a complex L/R average at each microphone position, before spatial phase
+> is discarded. That is why the acoustic timing reference is required. Once the
+> position sums exist, nothing downstream uses measured phase at all.
 
 **Why this is the only window you will ever set** — three quotes from the Trace
 Arithmetic documentation:
@@ -1115,78 +1308,349 @@ the output cannot be fixed.** This is why step 2 comes before everything.
 
 ---
 
-### Step 3 — Reduce the captures to spatial `L`, spatial `R`, and spatial `SUM`
+### Step 3 — Reduce the captures to three divisors
 
-Do the operations in this order. An average made by trace arithmetic is a
-frozen result; later changes to an input do not update it.
+You have ten windowed captures. The rest of the procedure needs exactly
+**three** traces out of them:
 
-#### 3a — Collapse the centred repetitions
+| | what it is | used by |
+|---|---|---|
+| `L-SP` | the left channel, averaged over the five positions | the target, and the per-channel filter above 80 Hz |
+| `R-SP` | the right channel, same | the target, and the per-channel filter above 80 Hz |
+| `SUM-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 
-For L, select the unsuffixed centre trace, `repetition`, and `repetition.2`.
-Verify their impulse overlay; if an offset is visible use **`Cross corr
-align`**, otherwise retain the acoustic-reference timing. Choose **`Vector
-average`** and name the result `L-C`. Repeat for R to make `R-C`.
+#### The word "family"
 
-This is the only place repetitions are averaged. If only one clean centre
-sweep exists, simply rename/copy it as `L-C` or `R-C`. The spatial stage must
-receive one centre representative, not all three repetitions.
+Used throughout this step, and it means exactly one of three sets:
 
-#### 3b — Build the L/R combination at each position while phase still exists
-
-For each position select its matching L and R traces and choose **`Vector
-average`**. Do not use `Vector sum`: the average is
-
-```
-SUM-pos = (L-pos + R-pos) / 2
-```
-
-and therefore remains on the same SPL scale as each channel and the target.
-Do not independently `Align SPL...` L against R before this operation; their
-real level ratio is part of the cancellation being measured. Produce
-`SUM-C-calc`, `SUM-L+8`, `SUM-R+8`, and `SUM-F+10`. Once the rear-limit
-capture is corrected, make `SUM-B+20..23`; the existing `SUM-B~+33` is a
-diagnostic and is excluded from production averaging.
-
-If a simultaneous centre L+R sweep exists, prefer it at centre. First make a
-response copy so the raw capture remains untouched. A physical
-sum is `L + R`, 6.0206 dB above REW's `(L + R) / 2`. On the **SPL & Phase**
-graph right-click, open **`SPL offset`**, enter **−6.0206 dB**, then click
-**`Add to data`**; name the result `SUM-C-meas`. Keep `SUM-C-calc` as a check.
-For the present data, measured L+R minus the calculated vector average has a
-median of +6.009 dB over 20–225 Hz. After the exact −6.0206 dB normalization,
-the 1/6-octave magnitude difference is 0.276 dB rms. The exception is a
-razor-thin, non-repeatable disagreement near 49 Hz, which is why the
-simultaneous centre sum is preferable.
-
-#### 3c — Make three spatial RMS averages
-
-For each family separately, select its five position representatives in the
-All SPL legend and choose **`Align SPL...`**. Use **average level**, centre
-frequency **1 kHz**, span **2 octaves** (500 Hz–2 kHz). Then right-click again
-and choose **`RMS average`**:
-
-| selected family | result |
+| family | the five traces in it |
 |---|---|
-| `L-C`, `L-L+8`, `L-R+8`, `L-F+10`, `L-B+20..23` | `L-SP` |
-| `R-C`, `R-L+8`, `R-R+8`, `R-F+10`, `R-B+20..23` | `R-SP` |
-| normalized `SUM-C-meas` plus the four calculated `SUM-pos` traces | `SUM-SP` |
+| **L family** | `L C`, `L F20`, `L B20`, `L L20`, `L R20` — the left speaker measured at the five positions |
+| **R family** | `R C`, `R F20`, `R B20`, `R L20`, `R R20` — the right speaker at the same five |
+| **SUM family** | `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` — built in 3c, one per position |
 
-Align each calculated SUM trace as a whole; never alter L and R independently
-inside it. `RMS + phase avg.` is deliberately not used. Spatial phase has no
-single physical meaning, and all three divisors will be made minimum phase in
-step 4.
+A family is a set of five *positions*, always one channel or one sum — never
+a mixture of L and R. Each family gets averaged into exactly one spatial
+trace, and those three traces are the output of step 3.
 
-Exclude the present mislabeled `B+10`/actual `B~+33` traces from all three
-production families. If the rear-limit sweep has not yet been made, use the
-same four positions in `L-SP`, `R-SP`, and `SUM-SP` and label the results
-`4pos`; never mix a five-position channel average with a four-position SUM.
+#### The two rules
 
-The centre validation is strong enough for the calculated sums: replacing
-the calculated centre with the measured centre changes the five-position SUM
-by 0.174 dB rms below 80 Hz at 1/12 octave, with a 0.97 dB maximum; at 1/6
-octave the figures are 0.104 dB rms and 0.41 dB maximum.
+Everything else in this step is bookkeeping.
 
-#### 3d — Bake the crossover correction into the channel measurements
+> **Rule 1 — Phase is only meaningful *within* a position.**
+> Combine L with R while they still share a microphone point and a timing
+> reference. Once you average across positions the phase is gone, and no
+> later operation can recover it.
+>
+> **Rule 2 — Never change the L-to-R level ratio at a position.**
+> That ratio is not an error. It is the quantity that decides how deeply the
+> two speakers cancel at that seat, which is the entire subject of
+> [§11](#11-below-80-hz-correct-the-sum--not-each-channel). Any gain you apply
+> at a position must be applied to **both** channels equally, or not at all.
+
+Do the sub-steps in order. Trace arithmetic produces a **frozen** result:
+changing an input afterwards does not update anything already built from it.
+
+---
+
+#### 3a — Collapse any repeat sweeps (optional)
+
+*Skip this if you took one sweep per channel per position.*
+
+Repeat captures at one point measure repeatability. They are not extra spatial
+samples, and feeding all of them into the spatial average would silently
+weight that position more heavily than the others.
+
+1. Select the repeats of **one channel at one position**.
+2. Look at their impulse responses. Under an acoustic timing reference they
+   overlay: **do not shift them merely because an alignment action exists.**
+3. Choose **`Vector average`**. Name the result after the position — `L C`,
+   overwriting the individual names.
+4. Repeat for the other channel.
+
+`Vector average` is right here because these are coherently timed measurements
+of the same source at the same point, so it also reduces uncorrelated noise.
+
+> ### ⚠ `Cross corr align` has no role in this procedure
+> It is the obvious button to reach for, and there are three places you might
+> reach for it. All three are wrong.
+>
+> **Here, on the repeats.** REW: *"time aligns the currently selected
+> measurements by cross correlation of their windowed impulse responses, using
+> the measurement which appears first in the list of those selected as the
+> reference."* Under an acoustic timing reference there is nothing to align.
+> REW writes its own estimate into every measurement note —
+> `grep -o 'Delay [-0-9.]* ms' *.txt` — and on the 2026-08-17 set the spread
+> across repeats is **10 µs on L and 19 µs on R**, under 2° of phase at
+> 225 Hz. If it is ever larger than a sample the timing reference did not
+> hold; that is a measurement fault, and the fix is to sweep again.
+>
+> **In 3c, across the two channels.** Never. This is aligning two different
+> sources, and REW's author is explicit that it does not work:
+> > *"Cross correlation alignment is unlikely to work well if the sources are
+> > different, e.g. if you were to try to align measurements of both left and
+> > right speakers."* — John Mulcahy
+>
+> Worse, it would destroy the L-to-R arrival difference, which is the one
+> phase quantity this procedure actually consumes. *(The same caution applies
+> to the familiar sub-to-main alignment: that is also two different sources,
+> and it is done by optimising the summed response, not by cross-correlating
+> the two.)*
+>
+> **In 3d, across positions.** Pointless. `RMS average` discards phase
+> entirely, so time-aligning its inputs cannot change its output by so much as
+> a hundredth of a decibel.
+>
+> Cross correlation earns its place only ahead of a `Vector average` or an
+> `RMS + phase avg.` of one source at several positions — a phase-correction
+> branch this guide does not take. Mulcahy again:
+> > *"Use cross correlation alignment and vector averaging if you need to work
+> > with an impulse response, for EQ RMS or dB averages are often more
+> > suitable."*
+
+---
+
+#### 3b — Level alignment: what it is for, and when to skip it
+
+REW's only sentence on the subject:
+
+> *"If the measurements were made at different positions (spatial averaging)
+> it is usually best to first use the **Align SPL…** feature to remove overall
+> level differences due to different source distances."*
+
+and the action itself:
+
+> *"**Align SPL…**, which adjusts all the selected SPL traces so that they have
+> the same average SPL over a selected span."*
+
+REW's author, asked directly how much this matters:
+
+> *"Aligning SPL is important if the measurements are from significantly
+> different distances from the mic."* — John Mulcahy
+
+**"Significantly different" is the whole criterion, and it is a statement
+about your geometry, not about the software.** The rest of this sub-step works
+out where the threshold falls for a cluster that maps one seat.
+
+That is the whole of the official specification. It does not say what level
+the traces are aligned *to*, it does not say which traces you should put in
+the selection, and it provides no way to read back the offset it applied. So
+the rule below is derived here, from what the alignment is for, and then
+measured.
+
+**What it is for — weighting hygiene, not physics.** `RMS average` is a power average, so a
+position that happens to be 3 dB louder carries twice the weight of the
+others. If that extra level is an artefact of where the microphone sat rather
+than something the correction should chase, it quietly biases the average
+toward that one seat's shape. Align SPL exists to take that bias out.
+
+It is **not** a correction of the response, and it is **not** applied to make
+channels match. The absolute level of the finished divisor is set later, by
+the target level in step 5.
+
+**At a 20 cm cluster, skip it.** The geometry says why. Moving 20 cm along a 3.45 m path changes the direct
+level by `20·log10(3.65 / 3.45)` = **0.49 dB**, and only for the forward and
+back points; the lateral points barely change their distance at all. Half a
+decibel of weighting error, spread across five positions in a power average,
+is not a thing worth correcting.
+
+Measured, on the 2026-08-17 set — the finished common filter below 80 Hz,
+under four alignment policies, each compared against the exact one derived
+below:
+
+| policy | difference in the shipped filter |
+|---|---|
+| **align nothing at all** | **0.01 dB rms, 0.04 dB max** |
+| `Align SPL` on each family separately | 0.09 dB rms, 0.17 dB max |
+| one offset per position, taken from L alone | 0.06 dB rms, 0.21 dB max |
+| L equalised against R at each position | **0.39 dB rms, 0.68 dB max** |
+
+**Do nothing, and the filter is within 0.04 dB of perfectly aligned.** For a
+cluster that maps one seat, this sub-step is optional. Skip to
+[3c](#3c--form-the-mono-sum-at-each-position).
+
+It stops being optional when the cluster gets wide. Sample several seats a
+metre apart and the same arithmetic gives `20·log10(3.95 / 2.95)` = 2.5 dB of
+pure distance — five times the spread, and now worth removing.
+
+**If you do align: one offset per position, derived from both channels.**
+Two constraints, and they fix the recipe completely.
+
+**It must not change the L-to-R ratio at any position** (Rule 2). So the two
+channels at a point get the *same* number, and the sum built from them in 3c
+inherits it automatically.
+
+**It must be derived from both channels together** — from the total energy
+arriving at that seat, `(|L|² + |R|²) / 2` averaged over the span. This is the
+part that is easy to get wrong. Move the microphone 20 cm to the left and the
+left speaker gets louder while the right gets quieter; the *seat* has not
+changed its overall distance from the pair at all. An offset computed from L
+alone would read that lateral asymmetry as a level error and take it out of
+both channels — pushing the already-quieter right channel further down. The
+power sum of the two is blind to the asymmetry and sees only what actually
+changed: how far the seat is from the pair as a whole.
+
+The two disagree exactly where you would expect. On the 2026-08-17 set:
+
+| position | offset from **L** alone | from **R** alone | from **both** |
+|---|---:|---:|---:|
+| `C` | +0.18 dB | −0.46 dB | −0.16 dB |
+| 8 cm left | +0.17 | −0.37 | −0.11 |
+| 8 cm right | +0.12 | −0.01 | +0.07 |
+| 10 cm forward | +0.12 | −0.01 | +0.07 |
+| 33 cm back | **−0.60** | **+0.85** | +0.14 |
+
+The single-channel columns swing by up to 1.45 dB against each other; the
+combined column stays inside a quarter of a decibel, which is what a cluster
+this size should produce.
+
+**In REW**, since there is no way to read back what `Align SPL` decided:
+export the ten captures, take each one's average level over 500 Hz–2 kHz,
+combine the pair at each position as a power average, and subtract the mean
+of the five. Then apply each result to both of that position's captures with
+**`SPL offset`** → **`Add to data`**. If that is more bookkeeping than you
+want, use `Align SPL` on each family separately and accept the 0.17 dB in the
+table above — it is what REW documents, and it needs nothing read back.
+
+> ### ⚠ Never equalise L against R
+> The tempting move is to select `L L20` and `R L20` together and align them,
+> so that at the 20 cm-left position the left trace comes down and the right
+> comes up until they match. **Do not.**
+>
+> At that seat the left speaker really is closer and really is louder. That
+> difference is what the listener's head experiences there, and it is the
+> quantity that decides how completely the two speakers cancel at that point.
+> Equalise the two and you compute a mono sum for a listener who is not in the
+> room, and you fill in some of the cancellation that
+> [§11](#11-below-80-hz-correct-the-sum--not-each-channel) exists to protect.
+>
+> On this set the two channels differ by only 0.8–1.3 dB over 500 Hz–2 kHz, so
+> the damage is modest — the deepest null at each position moves by about
+> 0.2 dB, and the shipped filter by 0.39 dB rms. It is still the worst of the
+> four policies in the table, and it is the only one that is wrong in
+> principle rather than merely imprecise. The error grows with any real
+> imbalance: a channel gain mismatch, one speaker nearer a wall, a seat off
+> the centre line.
+
+**Whatever you do, verify it:** for each position, the L-minus-R level
+difference over 500 Hz–2 kHz must be exactly what it was before you touched
+anything. If it moved, an alignment reached across the two channels.
+
+---
+
+#### 3c — Form the mono sum at each position
+
+This is the step Rule 1 exists for, and the only place inter-channel phase is
+ever used.
+
+**Do:** for each of the five positions, select its `L` and `R` capture and
+choose **`Vector average`**. Name the results `SUM C`, `SUM F20`, `SUM B20`,
+`SUM L20`, `SUM R20`.
+
+**Use `Vector average`, not `Vector sum`:**
+
+| action | result | |
+|---|---|---|
+| **`Vector average`** | `(L + R) / 2` | ✓ same SPL scale as one channel and as the target |
+| `Vector sum` | `L + R` | ✗ 6.0206 dB higher; would ask for 6 dB of spurious common cut |
+
+**If you took the simultaneous L+R sweep at `C`,** prefer it — it is the real acoustic sum, with no assumption that the room held
+still between two sequential sweeps.
+
+A physical L+R sweep is `L + R`, so it sits **6.0206 dB above** REW's
+`(L + R) / 2` and must be normalised before it can stand in for one:
+
+1. make a response copy, so the raw capture stays untouched;
+2. right-click the **SPL & Phase** graph → **`SPL offset`** → **−6.0206 dB** →
+   **`Add to data`**;
+3. name it `SUM C` and use it in place of the calculated one. Keep the
+   calculated version alongside as a check.
+
+> ### The 6.0206 dB is exact, and it has been verified twice
+> **Second geometry.** The 185 cm set contains a genuine measured `L+R` sweep
+> beside its two channels. The complex sum of `L0` and `R0` reproduces the
+> measured `LR` to **0.502 dB rms** over 20–250 Hz (median +0.010 dB), and the
+> same measured sweep sits **+6.031 dB** above the vector average. Different
+> room, different REW version, different hardware — same 6.02 dB.
+>
+> **This geometry.** At the centre point, measured L+R sits a median
+> **6.009 dB** above the calculated vector average over 20–225 Hz. After the
+> exact −6.0206 dB normalisation the two agree to **0.276 dB rms** at 1/6
+> octave and 0.224 dB rms at native resolution above 80 Hz.
+>
+> The one place they part company is a razor-thin cancellation near 49 Hz,
+> where a fraction of a degree of sequential phase drift moves an almost
+> perfect null between bins. That is an argument for preferring the measured
+> sum, not against the substitution: swapping calculated for measured changes
+> the finished five-position divisor by only **0.174 dB rms** below 80 Hz.
+
+---
+
+#### 3d — Average across positions — three RMS averages
+
+Now, and only now, discard spatial phase.
+
+**Do:** for each family in turn, select its five traces in the All SPL legend,
+right-click the graph and choose **`RMS average`**.
+
+| select these five | name the result |
+|---|---|
+| `L C`, `L F20`, `L B20`, `L L20`, `L R20` | **`L-SP`** |
+| `R C`, `R F20`, `R B20`, `R L20`, `R R20` | **`R-SP`** |
+| `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` | **`SUM-SP`** |
+
+No further alignment here. If you applied position offsets in 3b the sums
+already carry them, and a family is never aligned a second time.
+
+**What you are giving up, deliberately.** REW: *"Phase is not taken into
+account, measurements are treated as incoherent… the result has the magnitude
+data from the source measurement and no phase data."* From here on the three
+divisors are magnitudes, and that is the intent — [R3](#r3-minimum-phase--the-two-places-you-take-it-and-the-one-place-you-must-not)
+has the full ledger of which phase this procedure uses, which it discards, and
+which it deliberately refuses to correct.
+
+**Why `RMS average` and not the alternatives:**
+
+| | why not |
+|---|---|
+| `Vector average` | position-dependent phase cancels and **manufactures new nulls** — the disease you are curing. REW: *"most appropriate for multiple measurements taken from the same position"* |
+| `RMS + phase avg.` | identical magnitude, but it attaches a vector-averaged phase that means nothing across positions. REW: *"The resulting impulse response may have significant acausal content as the relationship between magnitude and phase that would normally hold is broken. As a result the average requires larger left windows than usual."* Step 4 discards the phase anyway, so all you would buy is a longer left window |
+| `dB average` | a level average, not a power average: *"gives equal weight to peaks and dips which masks the magnitude difference between them."* REW allows it for deriving an EQ target from **smoothed** traces, but warns that *"with unsmoothed data the dips would have a disproportionate effect"* — and trace arithmetic here runs on unsmoothed data ([§9](#9-which-smoothing-and-why-the-smoothing-menu-will-not-help-you)) |
+
+**All three families must contain the same five positions.** Never build a
+five-position channel average against a four-position sum — the 80 Hz splice
+assumes both divisors describe the same set of listening points.
+
+> ### "Never average L with R" — and why `SUM-SP` is not a violation of it
+> Standard REW practice is emphatic that the two channels stay in separate
+> groups: average the five L into one trace, the five R into another, and never
+> put a left and a right capture in the same selection. The reason is that
+> `Align SPL` forces everything selected to a common level, so a mixed
+> selection would erase the genuine left-to-right balance along with the
+> positional scatter.
+>
+> **This procedure obeys that rule exactly.** `L-SP` and `R-SP` are built from
+> their own five captures and nothing else. Neither is ever contaminated by the
+> other, and the target in step 5 is an average of the two *finished* channel
+> traces, not of ten mixed captures.
+>
+> `SUM-SP` is a **third trace**, not a merged channel. It is never used as a
+> channel response, never equalised against `L-SP` or `R-SP`, and never
+> replaces either. It exists for one job: to be the divisor below 80 Hz.
+>
+> And it exists because of the very risk the standard advice names. Correcting
+> two channels independently is widely reported to produce a dip in the summed
+> response wherever the channels' phases diverge — which is
+> [§11](#11-below-80-hz-correct-the-sum--not-each-channel)'s failure, measured
+> here at 2.5 dB of extra loss across 40–62.5 Hz. The usual escape is a single
+> shared stereo filter, at the cost of never correcting either channel
+> properly. The 80 Hz splice takes the shared filter where the problem is and
+> the per-channel filters everywhere else. **The mono sum is the answer to that
+> caveat, not an exception to the rule that produced it.**
+
+---
+
+#### 3e — Bake the crossover correction into the channel averages
 
 1. `File → Import → Impulse Response` → `X801.wav`. Name it `X801 (revised)`.
    **Leave every window control on it alone** — see the warning below.
@@ -1199,12 +1663,21 @@ screen — `LX`, `RX` and their average — is the real corrected system.
 
 **A useful thing to know:** because `X801` has magnitude 0.00000 dB
 everywhere, `|LX| = |L|` exactly, and therefore `LX-MP` and `L-MP` are
-**identical**. Step 3 is magnitude-neutral, and the final filter would come out
-the same if you skipped it. Do it anyway, for two reasons: the traces you
-inspect are then honest about what you will hear, and if `X801` is ever
+**identical**. This sub-step is magnitude-neutral, and the final filter would
+come out the same if you skipped it. Do it anyway, for two reasons: the traces
+you inspect are then honest about what you will hear, and if `X801` is ever
 replaced by something that is *not* a pure all-pass (`Xo801`, which adds a
-bass-alignment term, is such a thing) the step becomes load-bearing without
+bass-alignment term, is such a thing) the sub-step becomes load-bearing without
 warning.
+
+**And why `SUM-SP` is left alone.** The same all-pass is applied to both
+channels, so it cancels out of their ratio: `(L·X + R·X)/2 = X·(L + R)/2`, and
+the magnitude of the sum is unchanged. Since `SUM-SP` is taken to minimum phase
+in step 4, which discards phase anyway, multiplying it by `X801` would change
+nothing. Measured on the 2026-08-10 pair at 50 Hz: the vector average of `LX`
+and `RX` reads 67.603 dB, the vector average of the un-multiplied pair
+67.602 dB. If `X801` is ever replaced by something that is not magnitude-flat,
+build `SUM-SP` from `LX`/`RX`-scale traces instead.
 
 > ### ⚠ Never window X801
 > It is an all-pass whose energy is spread symmetrically over ±1365 ms by
@@ -1227,7 +1700,7 @@ warning.
 |---|---|---|
 | Cal file effects | **included** | you are modelling the acoustic response as measured, and the mic calibration is part of what the measurement means |
 | **LF tail** | **yes**, at or just below the first measured bin: **16 Hz for the 2026-08-17 set**, 15 Hz for the older set | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
-| HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces already run to 24 kHz = Nyquist, so there is no top-end edge to ring against |
+| HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces run to the top of the sweep — 22.05 kHz on the 2026-08-17 set, 24 kHz where the sweep went to Nyquist — which is six octaves above the correction band, far enough that the edge cannot reach it. Confirm with the 6a subtraction rather than assuming |
 
 > ### ⚠ The LF tail is not optional — this guide said "no" and was wrong
 > A minimum-phase copy has exactly one obligation: **leave |H| unchanged**, and
@@ -1311,11 +1784,10 @@ copy of the measurement. It is also where the house curve goes. Note that a
 target shape is **magnitude only**, which is fine: only its magnitude survives
 step 8.
 
-**Why not `RMS + phase avg.`:** its magnitude would be the same, but its phase
-would be a vector average and the resulting impulse may contain significant
-acausal content. A target is magnitude-only, so attaching phase serves no
-purpose. The earlier edition named this option throughout even though it later
-discarded the phase; plain `RMS average` is the correct beta action here.
+**Why not `RMS + phase avg.`:** its magnitude is identical, but its phase is a
+vector average and the resulting impulse may carry significant acausal
+content. A target is magnitude-only, so attaching a phase to it serves no
+purpose. Use the plain **`RMS average`**.
 
 #### The target level — let REW calculate it, then check it this way
 
@@ -1564,11 +2036,14 @@ and then two operations per channel (7c, 7d). The reason is §11: below 80 Hz
 the two speakers cancel each other at the seat, and dividing by each channel
 separately deepens that cancellation.
 
-**7a — select the spatial sum built in step 3.** Use `SUM-MP`. Do **not**
-vector-average `LX` and `RX` here: `L-SP` and `R-SP` are spatial RMS
-averages, so their position phase has already been discarded. The mono sum
-had to be constructed L+R at each position first and spatially RMS-averaged
-second.
+**7a — take the spatial sum built in step 3.** Use `SUM-MP`.
+
+> **Do not vector-average `LX` and `RX` here.** `L-SP` and `R-SP` are spatial
+> RMS averages: their position phase is already gone, so a vector average of
+> them is not a mono sum of anything. The sum must be formed L+R at each
+> position ([3c](#3c--form-the-mono-sum-at-each-position)) and RMS-averaged
+> across positions ([3d](#3d--average-across-positions--three-rms-averages)),
+> in that order.
 
 **7b — the common filter, below 80 Hz.** Trace Arithmetic, **A over B**:
 
@@ -1804,6 +2279,18 @@ produces ripple.
 
 ### Step 11 — Accept or reject, before deploying
 
+> ### ⚠ Do not verify a five-position filter at one position
+> Remeasuring with the filter in place is the right final check, but measure
+> at **three or more of the five points**, not just the centre. A
+> multi-position filter matches the target at the centre *worse* than a
+> single-point filter would — that is the trade you bought, not a defect
+> ([§6](#6-one-microphone-position-or-several)).
+>
+> On the phase trace expect: the crossover rotation gone (`X801`, step 9), a
+> minimum-phase rotation consistent with the magnitude changes, and **the
+> room's reflections untouched**. If reflections look corrected, something
+> divided by a raw measurement instead of a `-MP` trace.
+
 **Do:**
 
 ```sh
@@ -1941,6 +2428,27 @@ similar to applying a smoothing of the same octave fraction" — *similar*, not
 identical, and this is where it differs.
 
 ## R3. Minimum phase — the two places you take it, and the one place you must not
+
+### The phase ledger
+
+Four kinds of phase pass through this procedure and each is treated
+differently. Confusing them is the most common way to misread the chain.
+
+| phase | fate | why |
+|---|---|---|
+| **across positions** | discarded by the `RMS average` in [3d](#3d--average-across-positions--three-rms-averages) | it describes one seat's interference pattern; correcting it optimises a point nobody's head stays in |
+| **L against R at one position** | **used once**, in [3c](#3c--form-the-mono-sum-at-each-position), then gone | it is the mono cancellation that [§11](#11-below-80-hz-correct-the-sum--not-each-channel) exists to correct. This is the only phase the procedure consumes, and why the acoustic timing reference is mandatory |
+| **the room's excess phase** | never corrected | inverting it needs an acausal filter, pre-rings, and is valid at one point ([§2](#2-what-it-can-correct-and-what-it-provably-cannot)) |
+| **the crossover all-pass** | corrected — by `X801`, in step 9 | position-independent, deterministic, known in closed form; and invisible to a magnitude-derived inverse |
+
+So discarding measured phase and regenerating minimum phase is not a loss you
+absorb. **It is the mechanism that stops the filter attempting the second and
+third rows.**
+
+One consequence worth knowing: because `L-SP` is magnitude-only and `X801` is
+magnitude-flat, `LX-MP` is identical to the minimum-phase copy of `L-SP`
+itself. `X801` does no work at 3e in a multi-position build; it earns its keep
+at **step 9**, where it is baked into the shipped filter.
 
 | # | applied to | producing | why |
 |---|---|---|---|
@@ -2462,7 +2970,7 @@ because 0.45 is a precise figure.)*
 |---|---|---|
 | Woofers keep moving after the music stops | narrow features in the correction curve → high-Q resonators | FDW at step 2. Verify at step 6 |
 | Group delay spike of tens of ms below 100 Hz | same | same |
-| Step 6 fails — features still 1–2 bins wide | the FDW never reached the data | check it was applied to `L`/`R`, that `Apply Windows` was pressed, and that step 3 was done **after** step 2 |
+| Step 6 fails — features still 1–2 bins wide | the FDW never reached the data | check it was applied to **every original capture**, that `Apply Windows` was pressed, and that step 3 was done **after** step 2 |
 | Filter is not flat above 300 Hz | the division's frequency limits were not set | step 7 — set 20 Hz and 225 Hz |
 | Filter has energy *before* its peak | **1/\|A\|** was used, which is linear phase; or the divisor was `LX` not `LX-MP` | steps 4 and 7 |
 | Crossover phase unchanged after correction | expected — a minimum-phase inversion cannot see an all-pass | step 9; see [§3](#3-do-you-still-need-x801-yes--and-here-is-the-proof) |
@@ -2470,6 +2978,10 @@ because 0.45 is a precise figure.)*
 | Correction sounds right at the mic, wrong one seat over | single-point correction of position-specific features | more positions ([§6](#6-one-microphone-position-or-several)), or fewer FDW cycles |
 | Changed the window, the filter did not change | derived traces are snapshots, not live views | redo the chain from step 3 |
 | Deep null got *deeper* after the FDW | the FDW convolves the complex response; that null is early-arrival, not late | it is real — do not try to fill it |
+| Spatial average has *more* narrow nulls than the single positions | `Vector average` was used across positions | [3d](#3d--average-across-positions--three-rms-averages) — it must be `RMS average` |
+| Bass ~6 dB over-cut below 80 Hz | a measured simultaneous L+R sweep was used as the divisor without normalising | [3c](#3c--form-the-mono-sum-at-each-position) — subtract 6.0206 dB |
+| Common and per-channel filters disagree at the 80 Hz splice | the families contain different positions, or L was equalised against R | [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) and [3d](#3d--average-across-positions--three-rms-averages) |
+| FDW appears to do nothing on a multi-position build | it was applied to the averages instead of the captures | step 2 — window all ten captures, then average |
 
 ## R11. Glossary
 
