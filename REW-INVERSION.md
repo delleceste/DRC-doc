@@ -306,8 +306,8 @@ feature that causes the damage.
    > overall level differences due to different source distances."*
 
    REW says no more than that, and how much it matters depends entirely on how
-   far apart the positions are — [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)
-   measures it for a one-seat cluster and derives the rule.
+   far apart the positions are — [3b](#3b--level-alignment-run-align-spl-on-each-family)
+   measures it for a one-seat cluster.
 3. **Spacing buys you less at low frequency than you would like.** Two points
    decorrelate when they are a useful fraction of a wavelength apart:
 
@@ -336,30 +336,24 @@ much the mono response actually changes when the microphone moves, rms over
 |---|---:|---:|
 | 8 cm sideways | 0.40–0.44 dB | 0.52–0.56 dB |
 | 10 cm forward | 0.48 dB | 0.64 dB |
-| **33 cm back** | **2.02 dB** | **1.70 dB** |
 
 **Below ~10 cm there is almost nothing to average.** The λ/4 table above says
 why: at 50 Hz a decorrelating distance is 1.7 m, and 8 cm is 5% of it. Useful
 decorrelation starts somewhere around 20–30 cm, which is also where the
 listener's head actually goes.
 
-Across the three offsets available here the difference grows roughly
-**linearly with distance** — about **0.09 dB rms per centimetre** at the FDW's
-own resolution:
+Half a decibel is barely above what two sweeps at the *same* point disagree
+by, so at this spacing the five positions are close to five copies of one
+measurement: the average has nothing to average. Decorrelation grows with the
+fraction of a wavelength you have moved, so the cure is simply more distance —
+and the ceiling on that distance is the seat, because a spread wider than the
+seat optimises a place nobody's head goes.
 
-| offset | 8 cm | 10 cm | 20 cm | 33 cm |
-|---|---|---|---|---|
-| difference from centre | ~1.1 dB | ~0.9 dB | **~1.8 dB** (interpolated) | ~3.0 dB |
-
-So ±20 cm carries about twice the information of ±8 cm, and ±8 cm is close to
-nothing. That, and the head envelope above, is why the recommendation is 20 cm
-and not 8.
-
-*(One caveat this dataset cannot settle: its only large offset is also its
-only large front-to-back offset, and front-to-back is the axis that changes
-the microphone's distance to the boundaries and so moves in-band interference.
-Distance and axis are confounded here. Measuring ±20 cm on both axes separates
-them.)*
+**Between those two bounds there is only one number left**, and the posture
+evidence below fixes it: the head's own front-to-back travel is about 20 cm.
+That is why the recommendation is 20 cm rather than 8 — not because 20 cm was
+measured here to be better, but because it is the largest offset that is still
+inside the seat, and the smallest that is not lost in the noise.
 
 > ### 20 cm is smaller than most guides recommend, on purpose
 > Mainstream practice assumes you are correcting a **listening area**. Dirac
@@ -413,7 +407,7 @@ Five positions, all at ear height: the listening position and four points
 | **positions** | **5** — `C`, `F20`, `B20`, `L20`, `R20`. 20 cm is the smallest offset that measurably decorrelates in this room, and it is inside the seat |
 | **per channel** | yes, L and R **separately** at every position; never average L with R at this stage |
 | **sweeps** | 10, plus one optional simultaneous L+R at `C` |
-| **combine with** | **RMS average across positions**. Level alignment is optional at this cluster size — [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) has the measurement |
+| **combine with** | **RMS average across positions**, after `Align SPL` on each channel family — [3b](#3b--level-alignment-run-align-spl-on-each-family) measures how little that second part changes here |
 | **then** | build spatial `L`, spatial `R` and the spatial mono-sum divisor as [step 3](#step-3--reduce-the-captures-to-three-divisors) prescribes; the sum must be formed position by position, before spatial phase is discarded |
 
 **Keep everything except the microphone fixed** for the whole set: speaker
@@ -497,7 +491,6 @@ from the centre point, mono sum, 20–225 Hz rms:
 | 8 cm lateral | 0.73 dB | **1.17** | 1.09 |
 | 8 cm lateral | 1.01 | 1.07 | 1.20 |
 | 10 cm forward | 0.86 | 0.86 | 0.84 |
-| 33 cm back | 2.71 | **2.96** | 2.94 |
 
 Windowing leaves the position differences unchanged or slightly **larger** —
 [§8](#8-how-much-regularisation--choosing-the-fdw-cycles)'s own mechanism
@@ -1123,7 +1116,7 @@ Worked numbers come from `120.blue-with-inversion.txts/` (single position) and
 **Before the first sweep:** level-match the two speakers at the source, with
 REW's generator and an SPL meter, and then leave the volume path alone for the
 whole session. From here on the measured L-versus-R level difference is a
-property of the room and the seat, and [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)
+property of the room and the seat, and [3b](#3b--level-alignment-run-align-spl-on-each-family)
 will refuse to touch it — so it had better not also contain an electrical
 imbalance you could have removed.
 
@@ -1182,7 +1175,7 @@ front-wall distance: `F20` and `B20` must differ from `C` by 20 cm, `L20` and
 calibration file, so the capture is insensitive to exact aiming. In the
 20–225 Hz correction band this changes almost nothing — the capsule is
 omnidirectional down there — but the 500 Hz–2 kHz band that
-[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) may use for
+[3b](#3b--level-alignment-run-align-spl-on-each-family) may use for
 level alignment is squarely in the region where aiming does matter, so pick
 one convention and hold it for the whole set.
 
@@ -1319,6 +1312,16 @@ You have ten windowed captures. The rest of the procedure needs exactly
 | `R-SP` | the right channel, same | the target, and the per-channel filter above 80 Hz |
 | `SUM-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 
+**The two suffixes, and why they are worth typing.** `-SP` marks a **spatial
+average** — a trace that no longer belongs to any one microphone position.
+`-MP` marks a **minimum-phase** copy (step 4). Both record something that has
+been irreversibly discarded: `-SP` that the trace has lost its position, `-MP`
+that it has lost its measured phase. A name without a suffix is still a single
+capture at a single point, with everything intact. Keep the suffixes on and a
+glance at the trace list tells you what a trace may still legitimately be used
+for — which of the two mistakes this step exists to prevent you are about to
+make.
+
 #### The word "family"
 
 Used throughout this step, and it means exactly one of three sets:
@@ -1410,129 +1413,100 @@ of the same source at the same point, so it also reduces uncorrelated noise.
 
 ---
 
-#### 3b — Level alignment: what it is for, and when to skip it
+#### 3b — Level alignment: run Align SPL on each family
 
-REW's only sentence on the subject:
+**Do:** select the five `L` captures in the **All SPL** legend, right-click,
+`Align SPL...`, span **500 Hz – 2 kHz**. Then select the five `R` captures and
+do the same. Two selections, two actions; that is the whole sub-step.
+
+REW's own words on why:
 
 > *"If the measurements were made at different positions (spatial averaging)
 > it is usually best to first use the **Align SPL…** feature to remove overall
 > level differences due to different source distances."*
 
-and the action itself:
-
 > *"**Align SPL…**, which adjusts all the selected SPL traces so that they have
 > the same average SPL over a selected span."*
 
-REW's author, asked directly how much this matters:
+and its author, asked how much it matters:
 
 > *"Aligning SPL is important if the measurements are from significantly
 > different distances from the mic."* — John Mulcahy
 
-**"Significantly different" is the whole criterion, and it is a statement
-about your geometry, not about the software.** The rest of this sub-step works
-out where the threshold falls for a cluster that maps one seat.
+**What it is for — weighting hygiene, not physics.** `RMS average` is a power
+average, so a position that happens to be 3 dB louder carries twice the weight
+of the others. If that extra level is an artefact of where the microphone sat
+rather than something the correction should chase, it quietly biases the
+average toward that one seat's shape. Align SPL takes that bias out. It is
+**not** a correction of the response, and it is **not** applied to make
+channels match: the absolute level of the finished divisor is set later, by
+the target level in [step 5](#step-5--build-the-target).
 
-That is the whole of the official specification. It does not say what level
-the traces are aligned *to*, it does not say which traces you should put in
-the selection, and it provides no way to read back the offset it applied. So
-the rule below is derived here, from what the alignment is for, and then
-measured.
+**One family at a time.** All five `L` in one selection, all five `R` in
+another — never both channels in the same selection. That is the one way this
+sub-step can do real damage, and the warning below is about it.
 
-**What it is for — weighting hygiene, not physics.** `RMS average` is a power average, so a
-position that happens to be 3 dB louder carries twice the weight of the
-others. If that extra level is an artefact of where the microphone sat rather
-than something the correction should chase, it quietly biases the average
-toward that one seat's shape. Align SPL exists to take that bias out.
+**How much it changes the filter: almost nothing.** Measured on the four
+captures of the 2026-08-17 set that lie inside a one-seat cluster — centre,
+8 cm left, 8 cm right, 10 cm forward — with both policies compared against
+doing nothing at all:
 
-It is **not** a correction of the response, and it is **not** applied to make
-channels match. The absolute level of the finished divisor is set later, by
-the target level in step 5.
-
-**At a 20 cm cluster, skip it.** The geometry says why. Moving 20 cm along a 3.45 m path changes the direct
-level by `20·log10(3.65 / 3.45)` = **0.49 dB**, and only for the forward and
-back points; the lateral points barely change their distance at all. Half a
-decibel of weighting error, spread across five positions in a power average,
-is not a thing worth correcting.
-
-Measured, on the 2026-08-17 set — the finished common filter below 80 Hz,
-under four alignment policies, each compared against the exact one derived
-below:
-
-| policy | difference in the shipped filter |
+| what you do | how the finished filter changes |
 |---|---|
-| **align nothing at all** | **0.01 dB rms, 0.04 dB max** |
-| `Align SPL` on each family separately | 0.09 dB rms, 0.17 dB max |
-| one offset per position, taken from L alone | 0.06 dB rms, 0.21 dB max |
-| L equalised against R at each position | **0.39 dB rms, 0.68 dB max** |
+| **nothing** | — (the reference) |
+| **`Align SPL` on the L family, then on the R family** | **0.004 dB rms, 0.03 dB max** |
+| `Align SPL` on L together with R, position by position | 0.31 dB rms, 1.26 dB max |
 
-**Do nothing, and the filter is within 0.04 dB of perfectly aligned.** For a
-cluster that maps one seat, this sub-step is optional. Skip to
-[3c](#3c--form-the-mono-sum-at-each-position).
+**The offsets are smaller than the effect they exist to remove.** Across those
+four positions `Align SPL` moves the whole `L` family by 0.057 dB — *below*
+the 0.063 dB spread of three sweeps taken without moving the microphone at
+all, so on that family it is correcting noise. The `R` family spreads by
+0.447 dB, which is real, but it does not follow distance: `R` reads loudest at
+the centre and 8 cm left, quietest 10 cm forward and 8 cm right. That is the
+reflection field at 500 Hz–2 kHz, not source distance — which means REW's own
+justification, *"level differences due to different source distances"*, barely
+applies at this scale.
 
-It stops being optional when the cluster gets wide. Sample several seats a
-metre apart and the same arithmetic gives `20·log10(3.95 / 2.95)` = 2.5 dB of
-pure distance — five times the spread, and now worth removing.
+Mulcahy's *"significantly different distances"* is a real criterion, but a
+one-seat cluster does not meet it — that is a description of sampling a row of
+seats, or two rows, where one microphone genuinely does sit a metre nearer the
+speaker than another.
 
-**If you do align: one offset per position, derived from both channels.**
-Two constraints, and they fix the recipe completely.
+Whatever the offsets are, little of them reaches the filter, because two
+things absorb them: the target in step 5 is the RMS average of these same
+divisors, so it floats up and down with them, and whatever survives that is
+then clamped by `min(Target − divisor, 0)`.
 
-**It must not change the L-to-R ratio at any position** (Rule 2). So the two
-channels at a point get the *same* number, and the sum built from them in 3c
-inherits it automatically.
+**So if you skip this sub-step, nothing is ruined.** It is worth the two
+actions anyway, because it costs nothing and because the margin is a property
+of *this* cluster, not of the method. Moving 20 cm along a 3.45 m path changes
+the direct level by `20·log10(3.65 / 3.45)` = 0.49 dB, and only for the
+forward and back points; the lateral points barely change their distance at
+all. Sample several seats a metre apart instead and the same arithmetic gives
+`20·log10(3.95 / 2.95)` = 2.5 dB — five times the spread, no longer absorbed,
+and firmly worth removing.
 
-**It must be derived from both channels together** — from the total energy
-arriving at that seat, `(|L|² + |R|²) / 2` averaged over the span. This is the
-part that is easy to get wrong. Move the microphone 20 cm to the left and the
-left speaker gets louder while the right gets quieter; the *seat* has not
-changed its overall distance from the pair at all. An offset computed from L
-alone would read that lateral asymmetry as a level error and take it out of
-both channels — pushing the already-quieter right channel further down. The
-power sum of the two is blind to the asymmetry and sees only what actually
-changed: how far the seat is from the pair as a whole.
-
-The two disagree exactly where you would expect. On the 2026-08-17 set:
-
-| position | offset from **L** alone | from **R** alone | from **both** |
-|---|---:|---:|---:|
-| `C` | +0.18 dB | −0.46 dB | −0.16 dB |
-| 8 cm left | +0.17 | −0.37 | −0.11 |
-| 8 cm right | +0.12 | −0.01 | +0.07 |
-| 10 cm forward | +0.12 | −0.01 | +0.07 |
-| 33 cm back | **−0.60** | **+0.85** | +0.14 |
-
-The single-channel columns swing by up to 1.45 dB against each other; the
-combined column stays inside a quarter of a decibel, which is what a cluster
-this size should produce.
-
-**In REW**, since there is no way to read back what `Align SPL` decided:
-export the ten captures, take each one's average level over 500 Hz–2 kHz,
-combine the pair at each position as a power average, and subtract the mean
-of the five. Then apply each result to both of that position's captures with
-**`SPL offset`** → **`Add to data`**. If that is more bookkeeping than you
-want, use `Align SPL` on each family separately and accept the 0.17 dB in the
-table above — it is what REW documents, and it needs nothing read back.
-
-> ### ⚠ Never equalise L against R
+> ### ⚠ Never align L against R
 > The tempting move is to select `L L20` and `R L20` together and align them,
 > so that at the 20 cm-left position the left trace comes down and the right
 > comes up until they match. **Do not.**
 >
 > At that seat the left speaker really is closer and really is louder. That
-> difference is what the listener's head experiences there, and it is the
-> quantity that decides how completely the two speakers cancel at that point.
-> Equalise the two and you compute a mono sum for a listener who is not in the
-> room, and you fill in some of the cancellation that
+> difference is what a head at that point experiences, and it is the quantity
+> that decides how completely the two speakers cancel there. Equalise the two
+> and you compute a mono sum for a listener who is not in the room, filling in
+> some of the cancellation that
 > [§11](#11-below-80-hz-correct-the-sum--not-each-channel) exists to protect.
 >
-> On this set the two channels differ by only 0.8–1.3 dB over 500 Hz–2 kHz, so
-> the damage is modest — the deepest null at each position moves by about
-> 0.2 dB, and the shipped filter by 0.39 dB rms. It is still the worst of the
-> four policies in the table, and it is the only one that is wrong in
-> principle rather than merely imprecise. The error grows with any real
-> imbalance: a channel gain mismatch, one speaker nearer a wall, a seat off
-> the centre line.
+> On this set the two channels differ by 0.8–1.3 dB over 500 Hz–2 kHz, and
+> erasing that costs **0.31 dB rms and 1.26 dB peak** in the shipped filter —
+> the third row of the table, and close to a hundred times the effect of
+> aligning by family. It is also the only policy of the three that is wrong in
+> *principle* rather than merely imprecise, so it is the one that keeps getting
+> worse: a channel gain mismatch, one speaker nearer a wall, or a seat off the
+> centre line all enlarge it, while the honest policies stay where they are.
 
-**Whatever you do, verify it:** for each position, the L-minus-R level
+**Verify it, whichever you did:** for each position, the L-minus-R level
 difference over 500 Hz–2 kHz must be exactly what it was before you touched
 anything. If it moved, an alignment reached across the two channels.
 
@@ -2305,6 +2279,222 @@ lower the FDW cycles, and re-run the chain from step 3. A filter that fails thes
 
 ---
 
+### Step 12 — Deploy
+
+The filter is accepted. This step turns the two REW exports into BruteFIR
+coefficients at every sample rate the DAC can be asked for, and — if you want
+the deployment to be able to say what it is made of — binds them to the
+measurements they came from.
+
+Full detail in [`DEPLOYMENT.md`](DEPLOYMENT.md); what follows is the operating
+sequence.
+
+**Do — export, if step 10 did not already:**
+
+1. `Export` → **`Export impulse response as WAV`**, REW's defaults, at
+   **48 kHz, 32-bit float**. 48 kHz is REW's own working rate, so nothing is
+   resampled inside REW; SoX does that later, once, with arithmetic you can
+   check. REW writes 131072 samples and there is no tap count to set.
+2. Name them `FLX-trimmed-48k.wav` and `FRX-trimmed-48k.wav`.
+3. **Also export `FLX.txt` and `FRX.txt`** — the filters' frequency responses,
+   `Smoothing: None`. Nothing convolves with them. They are the independent
+   statement of what the filter is supposed to do, and the deployment checks
+   the WAVs against them. Without them the declaration below cannot run.
+
+> ### ⚠ 48 kHz is a decision, not a default
+> It is tempting to export at the playback rate to "avoid a conversion". Do
+> the opposite. Exporting at REW's working rate means the single rate
+> conversion happens in SoX, at `rate -v -L -s` through a float64
+> intermediate, logged to `sox.txt`, with a coefficient scale you can verify
+> by hand. Exporting at 192 kHz moves that conversion inside REW where it is
+> neither logged nor checkable.
+
+> ### Where the filters actually go
+> `open-media-drc` is the **public engine** and ships only the generic `flat`
+> set — a dirac pulse, no correction. This room's filters and BruteFIR configs
+> live in a separate site repository, **`~/devel/omdrc-801N`**, so that the two
+> can be versioned and deployed independently. Everything below writes there,
+> not into the engine checkout.
+>
+> Nothing in it is secret; it is published as a worked example of what a
+> measured, verified deployment looks like, and is worth reading before you
+> make your first one.
+
+**Do — the quick rebuild** (experiments, or coefficients-only changes):
+
+```sh
+SITE=~/devel/omdrc-801N
+cd ~/devel/open-media-drc
+cp ../DRC/DRC-120.blue/F[LR]X-trimmed-48k.wav $SITE/filters/120.blue/rew/
+
+scripts/REW2raw-all-rates.sh \
+  -L $SITE/filters/120.blue/rew/FLX-trimmed-48k.wav \
+  -R $SITE/filters/120.blue/rew/FRX-trimmed-48k.wav \
+  -o $SITE/filters/120.blue
+
+python3 scripts/headroom_calc.py $SITE/filters/120.blue
+```
+
+The first script writes `L.raw`, `R.raw` and `sox.txt` into every numeric
+directory **found** under the filter root — 44100, 48000, 88200, 96000,
+192000. The second prints the `attenuation:` each
+`configs/120.blue/brutefir-<rate>.conf.in` now needs. Apply it before you
+listen — and apply it to the **`.conf.in` template**, because the `.conf` is
+generated at install time from it and is not tracked.
+
+**On this path the rate list is whatever directories exist**, since the script
+contains no `mkdir` and exits with *"No numeric sample-rate directories found"*
+if there are none: adding a rate means creating its directory, and its config
+template, by hand. The declared path below is deliberately the opposite — it
+creates each rate directory from an explicit `--rates` list, so that a rate
+cannot silently disappear along with its directory.
+
+**Why the coefficients are rescaled and never peak-normalised.** A sampled
+impulse response represents `T·h(nT)`, with `T` the sampling period, so
+changing the rate requires
+
+```text
+scale = Fs_source / Fs_target        gain_dB = 20·log10(scale)
+```
+
+The 48 kHz export therefore becomes the 192 kHz set at 0.25, i.e. −12.04 dB.
+Nothing has been made quieter: four times as many coefficients are now sampling
+the same continuous impulse. Peak values in `sox.txt` are diagnostics. Any
+tool that "normalises" a filter here has destroyed exactly the quantity that
+makes the rates equivalent.
+
+**Why headroom is not optional.** BruteFIR convolves audio bounded by ±1.0
+with `h[n]`; at the frequency of greatest gain a full-scale sine clips when
+`|H(f)| > 1`. The requirement is
+`attenuation_dB = max(0, peak_gain_dB + margin)`, with `peak_gain_dB` the
+largest magnitude in the FFT of the impulse and a 1 dB default margin. This
+procedure clamps every filter to `min(Target − divisor, 0)`, so the *design*
+has no net boost — but `X801` is multiplied in afterwards, and the trim and
+resampling are not obliged to leave the peak where it was. Measure it, do not
+assume it.
+
+**Do — the declared deployment** (anything you intend to keep):
+
+The quick path produces coefficients that work and cannot say where they came
+from. The declared path produces a bundle whose identity is a hash of
+everything that went into it — which is what allows the web UI to show the
+filter's provenance rather than a grey "unknown".
+
+1. **Declare the roles, in the measurement repository.** A filename is not
+   evidence: `L.txt` does not prove a file holds the left measurement. So state
+   it once, explicitly, and let the tool record what each file actually
+   contains.
+
+   ```sh
+   python3 scripts/declare_filter_design.py \
+     --suggest-from-source-root ../DRC/DRC-120.blue     # read-only discovery
+   ```
+
+   then the real command with `--measurement-left/-right/-sum`,
+   `--filter-left-txt/-right-txt`, `--filter-left-wav/-right-wav`, the optional
+   `--corrected-*` exports, `--geometry`, `--design-id` and `--sum-mode`. Run
+   it once without `--write` and read every parsed header back.
+
+   **`--sum-mode vector_average` is the right value for a filter built by this
+   guide.** [3c](#3c--form-the-mono-sum-at-each-position) forms the vector
+   `L + R` and subtracts 6.0206 dB, which is `(L + R) / 2` — a vector average.
+   The tool checks your answer against the TXT header rather than believing it.
+
+2. **Commit the declaration together with every file it names, then create an
+   annotated tag.** The tag is the trust anchor: an immutable named Git object,
+   and a signed one also establishes who made it. Deployment requires an
+   annotated tag by default.
+
+3. **Build from the tag, in the engine checkout.** Dry run first:
+
+   ```sh
+   python3 scripts/new_filter_design.py \
+     --source-root ../DRC/DRC-120.blue \
+     --source-ref  120.blue-rscreen-fdw8-20260813 \
+     --declaration omdrc-designs/120.blue/rscreen-fdw8-20260813/design.json
+   ```
+
+   It verifies the tag object, the commit and every declared hash; requires a
+   common acoustic timing reference and a common frequency grid across the
+   measurement exports; checks each filter WAV against its TXT in complex
+   frequency space after fitting exactly one causal delay and one constant
+   export gain; generates every requested rate in staging; computes headroom;
+   parses each candidate config and requires its attenuation to meet the
+   calculated requirement. Then repeat with `--write`, which publishes
+   atomically — never half an L/R pair, never one rate at a time.
+
+4. **Verify, commit, install, select.** The publication writes into the site
+   repository and the commit belongs there; the build belongs to the engine.
+
+   ```sh
+   export OMDRC_SITE_ROOT=~/devel/omdrc-801N     # or pass --site-root
+   python3 scripts/verify_filter_bundle.py --all --require-sources \
+           --site-root ~/devel/omdrc-801N
+
+   git -C ~/devel/omdrc-801N add -- filters/120.blue configs/120.blue
+   git -C ~/devel/omdrc-801N commit -m "Deploy 120.blue rscreen-fdw8-20260813"
+
+   cd ~/devel/open-media-drc/build
+   cmake .. -C ../host.cmake && make && sudo make install
+   ./drc.sh design --list
+   ./drc.sh design @rscreen-fdw8-20260813
+   ```
+
+Every command prints a **NEXT** block naming the remaining steps and the
+working directory for each — worth reading, because the source commit, the site
+commit and the build can happen in three different repositories.
+
+> ### The TXT↔WAV check is the one that catches real mistakes
+> It fits exactly two transformations between the filter's response TXT and its
+> exported WAV — one integer causal delay (8192 samples, from the trim) and one
+> constant gain (−3.0003 dB) — and then demands that what remains be small. A
+> frequency-dependent residual is rejected outright.
+>
+> That single test catches the entire family of "the WAV I deployed is not the
+> filter I designed" errors: the wrong export selected, an export taken before
+> the last rebuild, a filter exported without `X801` baked in, a stale file
+> copied from a previous design. None of those is visible by listening, and all
+> of them survive every other check in this document.
+
+**What ends up deployed:**
+
+`~/devel/omdrc-801N`, which currently holds `120.blue` as the `default` design
+plus a verified `@rscreen-20260812` beside it:
+
+```text
+filters/120.blue/
+  provenance/<design>.json        hash-bound manifest
+  provenance/<design>.source.json the build recipe it was made from
+  source/<design>/                role-named copies of the declared inputs
+  analysis/<design>.json          precomputed response curves
+  <rate>/L.raw                    the default design
+  <rate>/@<design>/L.raw          an immutable A/B design
+  <rate>/sox.txt                  the conversion log
+  rew/                            the REW exports; BruteFIR never reads these
+configs/120.blue/
+  brutefir-<rate>[@<design>].conf.in   tracked template
+  brutefir-<rate>.conf                 rendered at install, gitignored
+```
+
+for `<rate>` in 44100, 48000, 88200, 96000, 192000. Inside a template the
+coefficient path is written `@REPO_DIR@/filters/…`, and CMake substitutes the
+installed site directory — which is why the `.conf` is generated rather than
+committed.
+
+The geometry and the correction stay separate concepts: `120.blue` is where the
+speakers are, `@rscreen-fdw8-20260813` is which filter is loaded into it. That
+is what makes an A/B between two designs a one-line change instead of a
+rebuild, and it is the only honest way to compare two filters —
+[R8](#r8-acceptance-tests) tests a filter's construction, but only listening to
+both in the same room on the same afternoon compares them.
+
+**The measurements never move.** They stay in the geometry repository; the
+deployment *copies* what it was given into the site data under stable role
+names, with hashes, so that an installed machine never depends on a sibling
+checkout that may not exist there.
+
+---
+
 # Part IV — Reference
 
 ## R1. The IR window dialog, field by field
@@ -2980,7 +3170,7 @@ because 0.45 is a precise figure.)*
 | Deep null got *deeper* after the FDW | the FDW convolves the complex response; that null is early-arrival, not late | it is real — do not try to fill it |
 | Spatial average has *more* narrow nulls than the single positions | `Vector average` was used across positions | [3d](#3d--average-across-positions--three-rms-averages) — it must be `RMS average` |
 | Bass ~6 dB over-cut below 80 Hz | a measured simultaneous L+R sweep was used as the divisor without normalising | [3c](#3c--form-the-mono-sum-at-each-position) — subtract 6.0206 dB |
-| Common and per-channel filters disagree at the 80 Hz splice | the families contain different positions, or L was equalised against R | [3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it) and [3d](#3d--average-across-positions--three-rms-averages) |
+| Common and per-channel filters disagree at the 80 Hz splice | the families contain different positions, or L was equalised against R | [3b](#3b--level-alignment-run-align-spl-on-each-family) and [3d](#3d--average-across-positions--three-rms-averages) |
 | FDW appears to do nothing on a multi-position build | it was applied to the averages instead of the captures | step 2 — window all ten captures, then average |
 
 ## R11. Glossary
@@ -2996,6 +3186,15 @@ the weights used when averaging neighbouring bins. For a time window, the
 kernel is literally the FFT of the window. Its width is what "1/6 octave"
 specifies. From German *Kern*, "core". A kernel narrower than one bin changes
 nothing.
+
+**`-SP` (suffix).** *Spatial average.* A trace formed by RMS-averaging the
+same quantity measured at several microphone positions, so it describes the
+cluster rather than any one point. Its position-dependent phase is gone and
+cannot be recovered — see [3d](#3d--average-across-positions--three-rms-averages).
+
+**`-MP` (suffix).** *Minimum phase.* A copy in which the measured phase has
+been replaced by the phase the magnitude implies — see [R3](#r3-minimum-phase--the-two-places-you-take-it-and-the-one-place-you-must-not).
+Every divisor in this procedure carries it.
 
 **Minimum phase.** A system whose phase is the Hilbert transform of the log of
 its magnitude — the unique causal system with a given magnitude and the least
