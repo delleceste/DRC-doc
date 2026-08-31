@@ -181,6 +181,17 @@ And the decisive test — take the minimum-phase version of `X801.wav`:
 fourteen decimal places. Ask the inversion to correct the crossover and it
 correctly answers "there is nothing here".
 
+**And it earns its place.** Cascaded onto the measured channels (best-fit pure
+delay removed, so what is left is the phase distortion that actually smears
+transients), X801 cuts total excess-phase deviation over 200 Hz–15 kHz by
+**~30 %** — L 674° → 469° peak-to-peak, R 695° → 466°. The correction is
+concentrated at the **woofer/midrange crossover, 200–700 Hz**, where R's
+excess-phase spread drops from 67° to 24° and about **1.3 ms of group delay**
+is flattened. Above ~1 kHz it straightens a gentle phase tilt — visible on a
+wrapped-phase overlay, perceptually close to a pure delay — and does not touch
+the fine ripple or the tweeter crossover. The audible part is the lower
+midrange.
+
 > ### The answer, stated plainly
 > **Yes, you still need X801, and no amount of inversion will ever replace
 > it.** They address disjoint parts of the response — magnitude and
@@ -1130,7 +1141,8 @@ imbalance you could have removed.
 | setting | value |
 |---|---|
 | sweep | **512k log swept sine**, one sweep |
-| level | **−12 dBFS** |
+| start frequency | **≈ 12 Hz** — low enough that step 4's LF-tail corner (which REW floors at *start + 1 Hz*) lands a clean octave below the 20 Hz band edge, without going so low it over-drives the woofer. See the caution below |
+| level | **−12 dBFS** (drop to **−18…−20 dBFS** for any sweep starting below ~15 Hz) |
 | timing | **acoustic timing reference** — required |
 | **reference speaker** | **the same one for every sweep of both channels.** Measure L with `Output = L, Ref = L`; measure R with `Output = R, Ref = L` |
 | sample rate | 48 kHz |
@@ -1148,6 +1160,19 @@ positions, same gain, same room state, same mic height and orientation. Write
 the actual offset into the measurement note, and check it against the
 front-wall distance: `F20` and `B20` must differ from `C` by 20 cm, `L20` and
 `R20` must not differ from `C` at all.
+
+> ### ⚠ How low to start the sweep — and why not 10 Hz
+> Step 4 needs the LF-tail corner an octave below the 20 Hz band edge, and REW
+> will not put the corner lower than *sweep-start + 1 Hz*, so the sweep has to
+> start around **12 Hz** to give the corner room. Lower buys nothing: there is
+> no usable data below ~16 Hz — the room measurement there is noise and the
+> speaker is rolling off — REW only needs the low start to place the corner.
+> And a log sweep dwells **equal time per octave**, so 10–20 Hz gets as much
+> excitation as 10–20 kHz; on a ported woofer, below port tuning the cone
+> unloads and excursion climbs steeply for constant drive. So: **start at
+> 12–14 Hz, not 10**, drop the level to −18…−20 dBFS for those sweeps, and run
+> one trial while watching the woofer — visible large excursion or port
+> chuffing means raise the start or lower the level.
 
 > ### ⚠ One reference speaker for the whole set — this is what makes 3c possible
 > The acoustic timing reference does two jobs. It puts t = 0 at the impulse
@@ -1740,7 +1765,28 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 >
 > **Slope:** make the tail resemble what the trace physically is. For a
 > measurement, the speaker's own roll-off — **24 dB/oct** for a ported box,
-> 12 for a sealed one.
+> 12 for a sealed one. But see the next paragraph: if the corner sits near the
+> band edge, the physical slope can cost more group delay than the gate allows.
+>
+> **The corner's distance from the band edge is a group-delay budget, not just
+> a splice-quality one.** A 24 dB/oct tail is a 4th-order high-pass; its group
+> delay peaks just above the corner and is still large half an octave up. REW
+> floors the corner field at **sweep-start + 1 Hz**, so a sweep that started at
+> 16 Hz forces the corner to 17 Hz — only ½ octave below a 20 Hz band edge. The
+> band-limited division then inherits that phase and the group-delay acceptance
+> test fails at ~21 Hz: measured **+22 ms against the 10 ms gate**, with the
+> filter's *magnitude* already clamped flat there, so it is purely the tail.
+> Moving the **target's** LF cutoff (step 5) does not touch this — it is a
+> different corner. Three ways out, cheapest first:
+> - **Drop the tail to 12 dB/oct.** Halves the group delay near the corner. The
+>   gentler magnitude roll below the corner only asks for more sub-corner LF,
+>   which cut-only clamps — so it costs nothing real. Apply it in **both**
+>   minimum-phase steps (here and step 8).
+> - **Raise the common-filter low edge to 25–28 Hz** (step 7). REW centres the
+>   one-octave blend on the limit, so a 25 Hz edge is still ~75 % faded in at
+>   21 Hz; 28 Hz clears it. Costs ~1 dB of deep-bass taming.
+> - **Re-sweep from ≤ 12 Hz** so the corner lands ≥ 1 octave below the band
+>   edge. Not 10 Hz on a ported woofer — see step 1.
 >
 > **Verify, do not assume.** Export the copy and its source with
 > **Smoothing: None** and subtract. `|LX-MP| − |LX|` must sit at the ~0.03 dB
@@ -1951,6 +1997,49 @@ the first row and the problem is obvious — **this room is upper-bass dominant 
 200 Hz. Start the scoop at −2 dB and deepen it by ear; too much hollows out
 male voice and cello. The extra cut costs headroom (12.9 dB at the worst peak,
 against 8.6 dB now), which is amplifier gain, not excursion.
+
+> ### The delivered scoop runs deeper than the drawn one — draw shallower than you want to hear
+> `achieved = min(target, measurement)` is only exact against the **minimum-phase
+> copy** the division actually uses (step 4). The real, non-minimum-phase
+> measurement can and does sit *below* that copy, and that residual is not
+> corrected — it is exactly what step 4 discards before the division so the
+> filter doesn't chase it.
+>
+> Measured on the 2026-08-25 `Rscreen` build (target drawn at **−1.74 dB**,
+> 90–140 Hz):
+>
+> | | target | delivered L+R | gap |
+> |---|---:|---:|---:|
+> | 90–140 Hz | −1.55 dB | **−2.88 dB** | **−1.33 dB** |
+>
+> Pointwise on the R channel it is worse — −8.0 dB at 90 Hz and −9.0 dB at
+> 140 Hz against a −1 to −2 dB target, because R's non-minimum-phase content is
+> larger there than L's. A scoop drawn at −1.74 dB, aimed at "start at −2 dB,"
+> was delivered at −2.9 dB — already past the "too much" the guidance above
+> warns about, and audible as thinness in the presence region rather than as
+> "more balance."
+>
+> **Draw the scoop shallower than the target you actually want**, by roughly
+> the size of this gap for your own measurement — check it the same way, by
+> comparing `LX8-MP + Fcommon x Fdiff` (what the filter believes it's hitting)
+> against the real corrected prediction (`LR.filtered` or equivalent). Do not
+> assume the gap is 1.3 dB; that number came from one FDW-8 build and one room.
+> Verify it before trusting it, and re-check after any change to the FDW
+> window or the min-phase reconstruction, since both change how much
+> non-minimum-phase content step 4 throws away.
+
+> ### If the scoop keeps landing thin: don't use one
+> The scoop is the aggressive option and easy to over-shoot — the delivered gap
+> above, plus a room that only needs a decibel or two of upper-bass trim, can
+> leave 90–160 Hz gouged and the presence region audibly thin. The conservative
+> alternative is a **no-scoop Harman / Olive shape**: a smooth LF shelf
+> (~+4 to +5 dB), flat mids, no dip. It gives up some of C's un-masking
+> "balance" for a fuller, more forgiving low mid, and it is the right choice
+> when the spatially-averaged room is already close to neutral (deep-vs-upper
+> within ~2 dB). `housecurve.py` writes it as `house-curve-harman.txt` (+4) and
+> `house-curve-harman-fuller.txt` (+5); the 120.blue multi-point build uses the
+> +5. The file carries a −1 dB/oct treble tilt for REW's target-level calc only
+> — the filter is unity above 225 Hz, so the tilt is not delivered.
 
 **Two things the target cannot do:**
 

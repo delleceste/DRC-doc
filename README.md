@@ -6,8 +6,9 @@ no measurement data lives here.
 
 | document | what it is | PDF |
 |---|---|---|
-| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 49 pp |
+| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 50 pp |
 | [`NOTES.md`](NOTES.md) | the working history, including the retractions | 38 pp |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | taking a finished filter into `omdrc-801N` — rates, headroom, provenance | 8 pp |
 | [`SUBWOOFER-INTEGRATION.md`](SUBWOOFER-INTEGRATION.md) | integrating subs under a single-DAC constraint | 6 pp |
 | [`GIK-SCREEN-PANEL-PLACEMENT-120cm.md`](GIK-SCREEN-PANEL-PLACEMENT-120cm.md) | reflection geometry and measured panel-order study for the 120 cm configuration | 7 pp |
 | [`MANUAL.md`](MANUAL.md) | `allpass_tool.py` user manual | — |
@@ -31,5 +32,7 @@ no measurement data lives here.
 ## The measurements
 
 Live in the geometry repositories beside this one — `../DRC-185` (185 cm) and
-`../DRC-120.blue` (120 cm) — and the deployed coefficients in `open-media-drc`.
+`../DRC-120.blue` (120 cm). The deployed coefficients live in the site
+repository `~/devel/omdrc-801N`; `open-media-drc` is the public engine and
+ships only the uncorrected `flat` set.
 The scripts here reach them by relative path; see `CLAUDE.md`.

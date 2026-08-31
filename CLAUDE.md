@@ -15,7 +15,8 @@ BruteFIR.
 | **DRC-doc** (here) | documents, figures, analysis scripts, the PDF toolchain. **No measurement data at all** |
 | **../DRC-185** | the 185 cm geometry: `L0.txt`, `R0.txt`, `LR.txt` (Oct 2024), the mdats and the 185-era filter builds |
 | **../DRC-120.blue** | the lab: REW exports and filter WAVs for the 120 cm geometry |
-| **../../open-media-drc** | the product: deployed `FLOAT64_LE` coefficients under `filters/<geometry>/<rate>/`, versioned by **release tag**. `REW2raw.sh` converts REW WAV → raw with an `input_rate/target_rate` coefficient scale |
+| **../../open-media-drc** | the public engine: scripts, `drc.sh`, BruteFIR, the build, versioned by **release tag**. Ships only the uncorrected `flat` set. `REW2raw.sh` converts REW WAV → raw with an `input_rate/target_rate` coefficient scale |
+| **~/devel/omdrc-801N** | the *site data* — **this room's** deployed `FLOAT64_LE` coefficients under `filters/<geometry>/<rate>/[@<design>/]`, plus manifests and configs. Split out of `open-media-drc` so engine and room version separately; reached via `OMDRC_SITE_ROOT` / `--site-root` / CMake's `OMDRC_SITE_DATA_DIRS` |
 
 `../DRC-120` (no `.blue`) is **retired — never use it**. Older measurement
 archives: `../803D2/`, `../803D2/2017-subs/`, `../801N.first.measurements/`.
@@ -30,6 +31,10 @@ paths* below.
 - **`REW-INVERSION.md`** — the procedure. Clean, no history, no retractions.
   Its worked example is the 120 cm configuration, but the procedure is general.
 - **`NOTES.md`** — the history *and* the retractions, through 2026-08-18.
+- **`DEPLOYMENT.md`** — what happens after the guide's step 11: `REW2raw`, the
+  rate scale, headroom, and the declaration/annotated-tag/deploy chain that
+  publishes into `~/devel/omdrc-801N`. The guide's step 12 is the condensed
+  version of it.
 - **`SUBWOOFER-INTEGRATION.md`** — the sub analysis, added 2026-08-13.
 - **`GIK-SCREEN-PANEL-PLACEMENT-120cm.md`** — the completed 120 cm study of
   first-reflection geometry and the right-side panel reorder.
@@ -148,9 +153,9 @@ indicative.
 - **Stable names for the current build**: `FLX-48k.wav`, `FLX-trimmed-48k.wav`.
 - **Suffix only while two builds must coexist** for comparison (`FLX8` vs
   `FLX`), then collapse to the stable name once one wins.
-- **Deployments are versioned by `open-media-drc` release tags**, not by
-  filenames and not by DRC-120.blue. That repo already answers "what was in
-  service".
+- **Deployments are versioned by annotated tags and bundle IDs**, not by
+  filenames and not by DRC-120.blue. `omdrc-801N` answers "what is in service";
+  `open-media-drc` release tags version the engine, not the filters.
 
 ## A habit worth keeping
 
