@@ -1,30 +1,44 @@
 #!/usr/bin/env python3
 """Generate REW house-curve files for the 120.blue configuration.
 
-Shape "C" from REW-INVERSION.md step 5: a low shelf plus a broad upper-bass
-scoop.  The scoop is the part that matters -- the room is upper-bass dominant
-by 3.3 dB, and with a cut-only filter (max gain 0 dB, achieved = min(target,
-measurement)) the way to more apparent low end is to pull 80-160 Hz down, not
-to raise the shelf.  A taller shelf means LESS cutting, which buys loudness
-and lumpiness together.
+Two families are written.
 
-Two variants are written; both keep the same +4 dB shelf:
-    house-curve-C2.txt   scoop -2 dB   start here
-    house-curve-C3.txt   scoop -3 dB   fuller, deepen by ear
+Shape "C" -- REW-INVERSION.md step 5: a low shelf plus a broad upper-bass
+scoop.  The scoop pulls 80-160 Hz down to un-mask the deep bass with a
+cut-only filter (max gain 0 dB, achieved = min(target, measurement)).
+    house-curve-C2.txt   +4 dB shelf, scoop -2 dB
+    house-curve-C3.txt   +4 dB shelf, scoop -3 dB
+On the Rscreen build C2 was drawn at -1.74 dB and *delivered* near -2.9 dB
+(the non-minimum-phase residual sits below the min-phase copy the division
+uses), and that reads as thinness through male voice and cello rather than as
+"more balance" -- see the errata under step 5.
+
+Shape "Harman" -- the classic Harman / Olive in-room target: a ~+4 dB
+low-frequency shelf relative to the midrange, flat mids, and a smooth
+downward treble tilt of about -1 dB/octave from 1 kHz up.  NO scoop.  This is
+the shape the pre-Rscreen 120.blue build used (that one ran a taller +6 dB
+shelf and a gentler -0.5 dB/oct tilt) and which was preferred by ear.
+    house-curve-harman.txt         +4 dB shelf   canonical
+    house-curve-harman-fuller.txt  +5 dB shelf   toward the old 120.blue
+
+Only the part below ~225 Hz is ever convolved here: the division in step 7 is
+band-limited and cut-only, so the filter is unity above the band.  The bass
+shelf is delivered by this house curve; THE TREBLE TILT IS NOT -- it has to be
+a separate broad high-shelf filter in the BruteFIR chain.  The tilt is kept in
+the Harman files anyway so the file is a faithful Harman curve and REW's
+target-level calculation sees the real shape (it moves the level by ~0.2 dB).
 
 REW format (help/housecurve.html): "pairs of frequency and offset values
 separated by spaces, tabs or commas", frequency in Hz and offset in dB, "only
 lines which begin with a number are loaded", and "the first and last values in
 the file are used for all frequencies below and above the range of the data".
 Load with EQ window -> House Curve preferences.
-
-The curve is flat 0 dB above ~250 Hz on purpose: the division in step 7 is
-limited to 20-225 Hz, so the filter is unity up there and any shape put above
-the band is decoration.  A treble tilt has to be a separate shelving filter.
 """
 import numpy as np
 
-REF = 200.0            # the curve is defined relative to this frequency
+REF = 200.0            # every curve here is 0 dB at this frequency
+
+# ---- Shape C -------------------------------------------------------------
 SHELF_DB = 4.0         # low shelf, dB at 20-40 Hz
 SHELF_F = 55.0         # shelf corner
 SHELF_W = 0.55         # shelf width, in ln(f)
@@ -43,8 +57,31 @@ def curve(f, scoop):
     return shelf(f, SHELF_DB) - scoop * np.exp(-0.5 * (np.log(f / SCOOP_F) / SCOOP_W) ** 2)
 
 
+# ---- Shape Harman ------------------------------------------------------------
+H_SHELF_F = 120.0      # bass-shelf corner (half of the +top reached here)
+H_SHELF_W = 0.60       # bass-shelf width, in ln(f)
+H_TILT_DB_PER_OCT = 1.0    # treble downward tilt above the hinge
+H_TILT_HINGE = 1000.0     # tilt is 0 dB at/below the hinge, negative above
+
+
+def h_bass(f, top):
+    """+top dB low shelf, 0 dB at REF, flattening below ~50 Hz."""
+    s = 0.5 * (1 - np.tanh(np.log(f / H_SHELF_F) / H_SHELF_W))
+    s0 = 0.5 * (1 - np.tanh(np.log(REF / H_SHELF_F) / H_SHELF_W))
+    return top * (s - s0) / (1 - s0)
+
+
+def h_tilt(f):
+    return -H_TILT_DB_PER_OCT * np.log2(np.maximum(f, H_TILT_HINGE) / H_TILT_HINGE)
+
+
+def harman(f, top):
+    return h_bass(f, top) + h_tilt(f)
+
+
 f = np.logspace(np.log10(10.0), np.log10(20000.0), 265)   # 1/24 octave
 
+# ---- write Shape C ----
 for scoop, name in ((2.0, 'house-curve-C2.txt'), (3.0, 'house-curve-C3.txt')):
     g = curve(f, scoop)
     with open(name, 'w') as fh:
@@ -55,10 +92,28 @@ for scoop, name in ((2.0, 'house-curve-C2.txt'), (3.0, 'house-curve-C3.txt')):
                  % (SHELF_DB, SHELF_F, scoop, SCOOP_F, REF))
         for fi, gi in zip(f, g):
             fh.write('%.3f %.3f\n' % (fi, gi))
-    print('wrote %-20s  %d points' % (name, len(f)))
+    print('wrote %-28s  %d points' % (name, len(f)))
 
-print('\n           ' + ''.join('%8.0f' % x for x in
-                                (20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250)))
+# ---- write Shape Harman ----
+for top, name in ((4.0, 'house-curve-harman.txt'),
+                  (5.0, 'house-curve-harman-fuller.txt')):
+    g = harman(f, top)
+    with open(name, 'w') as fh:
+        fh.write('# REW house curve -- DRC-120.blue, B&W Nautilus 801\n'
+                 '# Harman / Olive in-room target shape: +%.1f dB low shelf\n'
+                 '# (corner %.0f Hz), flat mids, -%.1f dB/oct treble tilt above\n'
+                 '# %.0f Hz. NO scoop. 0 dB reference at %.0f Hz.\n'
+                 '# The filter here is band-limited to ~225 Hz: this file delivers\n'
+                 '# the bass shelf only; the tilt needs a separate high-shelf.\n'
+                 '# Generated by housecurve.py. Load: EQ window -> House Curve.\n'
+                 % (top, H_SHELF_F, H_TILT_DB_PER_OCT, H_TILT_HINGE, REF))
+        for fi, gi in zip(f, g):
+            fh.write('%.3f %.3f\n' % (fi, gi))
+    print('wrote %-28s  %d points' % (name, len(f)))
+
+cols = (20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 1000, 4000, 10000, 20000)
+print('\n              ' + ''.join('%8.0f' % x for x in cols))
 for scoop, tag in ((2.0, 'C2  -2 dB'), (3.0, 'C3  -3 dB')):
-    print('%-10s ' % tag + ''.join('%+8.2f' % curve(np.array([x]), scoop)[0]
-          for x in (20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250)))
+    print('%-13s ' % tag + ''.join('%+8.2f' % curve(np.array([x]), scoop)[0] for x in cols))
+for top, tag in ((4.0, 'harman +4'), (5.0, 'harman +5')):
+    print('%-13s ' % tag + ''.join('%+8.2f' % harman(np.array([x]), top)[0] for x in cols))
