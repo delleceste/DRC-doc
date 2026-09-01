@@ -51,12 +51,16 @@ def minphase(mag):
     c=np.fft.ifft(full).real; w=np.zeros(N); w[0]=1; w[1:N//2]=2; w[N//2]=1
     return np.exp(np.fft.fft(c*w)[:N//2+1])
 
-FLX,_=R.rdwav(D+'FLX-trimmed-48k.wav')
+# The deployed filter, named explicitly. NOT D+'FLX-trimmed-48k.wav': that is a
+# STABLE name meaning "whatever build is current" (DRC-120.blue/CLAUDE.md), so it
+# silently became the Rscreen build, which decays to -40 dB in 149 ms instead of
+# 1347 ms -- i.e. it does not show the symptom this panel exists for.
+FLX,_=R.rdwav(D+'120.blue.txts/FLX-trimmed-48k.wav')
 X=R.spec_from_fr(D+'120.blue.txts/X801 (revised).txt')
 good=np.fft.irfft(minphase(smooth_lf(np.fft.rfft(FLX),1/6.))*X,N)
 good=np.roll(good,20000-int(np.argmax(np.abs(good))))
 
-for h,c,lab in [(FLX,'#d62728','as deployed  (FLX)'),(good,'#1f77b4','rebuilt, 1/6 oct below 200 Hz')]:
+for h,c,lab in [(FLX,'#d62728','as deployed  (FLX, legacy 120.blue build)'),(good,'#1f77b4','rebuilt, 1/6 oct below 200 Hz')]:
     x,e=gated(h); m=(x>=-120)&(x<=1600); ax[1].plot(x[m],e[m],color=c,lw=1.3,label=lab)
 ax[1].axvline(0,color='k',lw=1); ax[1].axhline(-40,color='k',ls=':',lw=1)
 ax[1].annotate('note stops',(0,3),fontsize=8,ha='center')
