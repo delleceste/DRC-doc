@@ -1206,6 +1206,47 @@ Worked numbers come from `120.blue.txts/` (single position) and
 
 ---
 
+### TL;DR — the eleven steps, no explanation
+
+For the impatient, or for a rebuild you've done before. Each step below links
+to its full version; read that if any line here doesn't make sense yet.
+
+1. **[Measure](#step-1--measure-the-five-positions).** Sweep each position,
+   start ≈ **12 Hz** (not 10 — woofer excursion), −12 dBFS (−18…−20 dBFS if
+   starting below ~15 Hz). One reference speaker per set.
+2. **[Window](#step-2--set-the-window-on-every-original-capture-before-averaging).**
+   Same IR window on every capture before any averaging — this is the one step
+   a later failure always traces back to.
+3. **[Reduce to divisors](#step-3--reduce-the-captures-to-three-divisors).**
+   Spatial-average each channel and the position-by-position `L+R` sum into
+   `LX`, `RX`, `SUM-SP` (`SUM` = complex, not RMS).
+4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
+   `LX`/`RX`/`SUM-SP` → `-MP` copies. LF tail **on**, corner at the sweep
+   start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave of
+   the correction band's low edge. HF tail off.
+5. **[Build the target](#step-5--build-the-target).** Load a house curve (no
+   scoop if the room already runs full — `house-curve-harman-fuller.txt`),
+   let REW set the level, export as the target trace.
+6. **[Stop and verify](#step-6--stop-and-verify).** Check the `-MP` copies
+   against their sources for narrow dips before dividing by them — a dip here
+   becomes a boost downstream.
+7. **[Divide](#step-7--the-division).** `Target ÷ SUM-MP` limited **20–80 Hz**
+   (or 25–80 if chasing the group-delay gate) → `Fcommon`. `Target ÷ LX-MP` /
+   `RX-MP` limited 80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L`
+   → `Fl` (and `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+8. **[Minimum phase, second time](#step-8--minimum-phase-second-time).**
+   `Fl`/`Fr` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
+   unless you want a deliberate subsonic high-pass. Cal file effects **off**.
+9. **[Bake in the crossover](#step-9--bake-the-crossover-correction-in-last).**
+   `X801 × LFilter` → `FLX` (and `FRX`), X801 as trace A, last of all.
+10. **[Export](#step-10--export).** Trim to set latency (doesn't change the
+    response), export 48 kHz / 32-bit float WAV.
+11. **[Accept or reject](#step-11--accept-or-reject-before-deploying).**
+    `drc_acceptance.py` on both channels. Fails → back to step 2, not a
+    post-process patch.
+
+---
+
 ### Step 1 — Measure the five positions
 
 **Do:**
