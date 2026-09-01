@@ -41,7 +41,7 @@ current one:
 | Sample rate | 48 kHz throughout |
 | Crossover correction | `X801.wav`, built in rePhase, 131072 taps |
 | Convolution engine | BruteFIR |
-| Data | inversion example: `../DRC-120.blue/120-blue-with-inversion.mdat`; multi-position example: `../DRC-120.blue/120.blue.screens.multimeas.mdat` |
+| Data | inversion example: `../DRC-120.blue/120.blue.mdat`; multi-position examples: `../DRC-120.blue/120.blue.screens.multimeas.mdat` and `../DRC-120.blue/120.blue.multi.pt.mdat` |
 
 **Not covered:** subwoofers, speaker placement, Auto EQ, room treatment.
 
@@ -751,12 +751,91 @@ which becomes over-cutting if it ever reaches an inversion.
 | edge | why |
 |---|---|
 | **20 Hz** low | below it the N801 is rolling off and the room measurement is mostly noise; correction there buys woofer excursion, not output |
-| **225 Hz** high | above Schroeder (166 Hz) the response is direct sound plus early reflections — a property of the loudspeaker and the seat, not of the room. It is already good, it does not need a 128k-tap filter, and correcting it from one microphone point fits that point |
+| **225 Hz** high | above Schroeder (166 Hz) the response is direct sound plus early reflections — a property of the loudspeaker and the seat, not of the room. It does not need a 128k-tap filter, and correcting it from one microphone point fits that point |
 
 The 225 Hz figure gives about half an octave of overlap above Schroeder, which
 is enough to let the correction die away gracefully rather than stop dead.
 REW blends the limits over **one octave**, so the correction is effectively
 fully out by ~320 Hz and fully in by ~160 Hz.
+
+### Why not push the top edge higher
+
+The honest objection to 225 Hz is that the response above it is *not*
+featureless. On the five-position set
+(`../DRC-120.blue/120.blue.multi.pt.mdat`) two features sit just above the
+edge and are plainly visible in `LR.filtered`:
+
+| feature | in the spatial average `LR-SP-MP` |
+|---|---|
+| **valley, 226 – 410 Hz** | **−5.2 dB** at 312 Hz (re its own 200 Hz – 2 kHz mean) |
+| **bump, 500 – 726 Hz** | **+4.6 dB** at 552 Hz |
+
+The first thing to check is whether they are single-point interference. They
+are not — or not entirely. Normalising each of the five positions to its own
+200 Hz – 2 kHz mean, 1/6 octave:
+
+| band | mean over the cloud | σ across ±20 cm |
+|---|---:|---:|
+| 288 – 367 Hz | −2.4 … −4.8 dB | 2.2 – 3.6 dB |
+| 524 – 609 Hz | +3.2 … +5.1 dB | 1.8 – 2.1 dB |
+| 900 – 1200 Hz | −4.3 dB | **3.5 – 4.4 dB** |
+
+Above 900 Hz the spread overtakes the feature and it is comb, exactly as §6
+predicts. At 300 – 600 Hz the feature still stands at two to three times the
+positional spread, and it survives the five-position average. So "it is only
+comb" is not the reason to stop at 225 Hz.
+
+**The reason is the clamp.** Carry it through `min(Target − divisor, 0)`, in
+raw dB, with the target level REW itself calculated:
+
+| f | `LR-SP-MP` | `Target LR.RMS` | cut delivered |
+|---:|---:|---:|---:|
+| 303 – 345 Hz | 63.4 – 64.3 | 71.6 | **0.00** |
+| 470 Hz | 67.8 | 71.5 | 0.00 |
+| 536 Hz | 72.8 | 71.5 | −1.32 |
+| **560 Hz** | **73.1** | **71.5** | **−1.63** |
+| 585 Hz | 72.5 | 71.5 | −1.01 |
+| ≥ 611 Hz | ≤ 71.1 | 71.5 | 0.00 |
+
+- **The valley is a dip, and the correction is cut-only.** It clamps to
+  exactly zero across the whole 226 – 410 Hz band. There is nothing to decide
+  here: §4 forbids filling it, and the arithmetic does not even try.
+- **The bump yields −1.6 dB at 560 Hz**, over roughly 536 – 600 Hz. Not the
+  4.6 dB it looks like on a normalised plot — the target line sits about 3 dB
+  above the response's own 200 Hz – 2 kHz mean, so only the tip of the bump
+  clears it.
+
+Extending the per-channel band from 225 Hz to 800 Hz therefore buys **one
+1.6 dB trim half an octave wide** (Q ≈ 2, so it would not trouble R8's
+sharpest-feature test — it simply is not worth a rebuild).
+
+> **The trap.** The bump *looks* like 4.6 dB, and the tempting fix is to raise
+> the target level until the clamp bites harder. Do not. Raising it cuts
+> broadband to chase a shape — the broad −3 to −6 dB roll above 600 Hz — that
+> is the loudspeaker's own power response and the seat, not the room. You
+> would spend headroom to install a treble tilt you did not ask for.
+
+**What the features actually are.** Not one comb: the peaks land at 216, 415,
+575 and 705 Hz, spacings 199, 160 and 130 Hz — decreasing, so no single
+reflection delay fits. Gating the centre-position IR, the 297 – 362 Hz valley
+is absent at a 3 ms gate and only appears from 5 ms out; the ETC shows a
+−17 to −21 dB plateau from 3.5 to 7 ms, which is the side wall, the ceiling
+and the front wall arriving together. That is `H(excess)` — interference
+between direct sound and early reflections — and §2 says what a minimum-phase
+filter does to it: nothing. Moving it at one point moves it somewhere else.
+
+**The lever for that band is acoustic, not arithmetic.** Absorption at the
+first reflection points acts on it at every seat, which no EQ can. On this
+geometry two front-wall screens delivered −2.0 dB over 355 – 710 Hz at
+roughly 5σ against head movement, and the intervention was judged
+under-dosed; see `../DRC-120.blue/NOTES.md`, 2026-08-28.
+
+One caveat left open. The valley bottoms at 303 – 345 Hz, which is the N801's
+woofer-to-midrange crossover at 350 Hz. If part of it were the crossover sum
+it would be minimum phase and genuinely correctable — but it would need a
+*boost*, which cut-only forbids, so it changes nothing operationally. The
+near-field material in `../DRC-120.blue/on.axis.61cm.txts/` cannot settle it:
+those exports start above ~500 Hz.
 
 ---
 
@@ -1122,7 +1201,7 @@ same whether you measured one position or five.
 `Generate minimum phase` and `SPL offset` are reached from the measurement's
 own controls.
 
-Worked numbers come from `120.blue-with-inversion.txts/` (single position) and
+Worked numbers come from `120.blue.txts/` (single position) and
 `120.blue.screens.multimeas.mdat` (the multi-position set).
 
 ---

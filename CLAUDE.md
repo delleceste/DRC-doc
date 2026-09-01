@@ -106,7 +106,7 @@ No script here reads a local data file. What each one opens:
 | script | reads | writes |
 |---|---|---|
 | `figbass.py` | `../DRC-120.blue/120.blue.Rscreen.txts/` | `fig-common-bass.png` |
-| `figconv.py` | `../DRC-120.blue/` + `120.blue-with-inversion.txts/` | `fig-convolution.png` |
+| `figconv.py` | `../DRC-120.blue/` + `120.blue.txts/` | `fig-convolution.png` |
 | `figwin.py`, `figfdw.py` | `../DRC-120.blue/LEFT-measured.csv` | `fig-window-shapes.png`, `fig-fdw.png` |
 | `figchain.py` | nothing — it draws | `fig-chain.png` |
 | `figroom.py` | `roomgeom.py`, traced from `room-form-with-panels.png` | `room-form.pdf` (2 pages), `room-form.png`, `room-form-panels.png` |
@@ -124,15 +124,26 @@ python3 allpass_tool.py -l ../DRC-185/L0.txt -r ../DRC-185/R0.txt -s ../DRC-185/
 `room.png` and `room-form-with-panels.png` are **inputs** — the pencil plan and
 the hand-annotated panel sketch. The `room-form*` outputs are generated.
 
-### The 2026-08-14 export-directory rename
+### The `DRC-120.blue` renames
 
-`DRC-120.blue` renamed its export directories; older text referred to the old
-names, and every reference here was corrected on 2026-08-18:
+`DRC-120.blue` renamed its session and export names twice; older text referred
+to the old names. The 2026-08-14 batch was corrected here on 2026-08-18, the
+2026-09-01 batch on 2026-09-01:
 
-| old name | now |
-|---|---|
-| `txt/` | `120.blue-with-inversion.txts/` |
-| `new.filters.txts/` | `120.blue.Rscreen.txts/` |
+| old name | now | when |
+|---|---|---|
+| `txt/` | `120.blue-with-inversion.txts/` | 2026-08-14 |
+| `new.filters.txts/` | `120.blue.Rscreen.txts/` | 2026-08-14 |
+| `120.blue-with-inversion.txts/` | **`120.blue.txts/`** | 2026-09-01 |
+| `120-blue-with-inversion.mdat` | **`120.blue.mdat`** | 2026-09-01 |
+
+The 2026-09-01 session rename came with a **clean** — measurements made by
+other techniques were removed and everything re-exported — so `120.blue.mdat`
+is a different file from the one `open-media-drc` audited, not merely a
+renamed one. The deployed chain (`FLX`, `FRX`, `…-trimmed`,
+`X801 (revised)`) re-exports numerically identical; the measurement traces are
+now unsmoothed instead of 96 ppo Psychoacoustic. Details and the recovery hash
+are in `../DRC-120.blue/CLAUDE.md`.
 
 The pre-rename snapshot of the second one survives at
 `../DRC-120.blue/archive/2026-08-12-noLFtail/new.filters.txts/` — that is the

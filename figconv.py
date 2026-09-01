@@ -52,7 +52,7 @@ def minphase(mag):
     return np.exp(np.fft.fft(c*w)[:N//2+1])
 
 FLX,_=R.rdwav(D+'FLX-trimmed-48k.wav')
-X=R.spec_from_fr(D+'120.blue-with-inversion.txts/X801 (revised).txt')
+X=R.spec_from_fr(D+'120.blue.txts/X801 (revised).txt')
 good=np.fft.irfft(minphase(smooth_lf(np.fft.rfft(FLX),1/6.))*X,N)
 good=np.roll(good,20000-int(np.argmax(np.abs(good))))
 

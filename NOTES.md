@@ -473,12 +473,13 @@ band. **Use all 242s.** Spectral matching beats geometric matching.
 
 > ### DATA SOURCE RULE (set 2026-08-04)
 > **`../DRC-120` is retired. Do not use it.** The authoritative 120 cm data is
-> **`../DRC-120.blue/120-blue-with-inversion.mdat`** and the text/CSV exports
+> **`../DRC-120.blue/120.blue.mdat`** *(named `120-blue-with-inversion.mdat`
+> until the 2026-09-01 rename)* and the text/CSV exports
 > beside it. Everything below has been re-derived from `DRC-120.blue` or comes
 > from `DRC-185`; anything that could not be re-derived is marked
 > **[NEEDS RE-DERIVATION]**.
 >
-> Measurements inside `120-blue-with-inversion.mdat` (REW V2, Java-serialised —
+> Measurements inside `120.blue.mdat` (REW V2, Java-serialised —
 > not machine-readable outside REW; export to text to work with it):
 > `L.120.Blue`, `R.120.Blue`, `L+R.120.Blue`, `LR120.blue` (vector avg),
 > `L1-MP`, `R1-MP`, `R1X`, `L2R2(oca 120)`, `L2R2+2dB`,
@@ -858,8 +859,9 @@ only as far as needed** → ~13 ms with steady-state error inside 40°.
    do not reduce it.** (See §16.6 — the imbalance is what caps cancellation.)
 4. Items 1–5 of §10 all still stand.
 5. **Re-derive §16 items 1–5 from `DRC-120.blue`.** **UNBLOCKED 2026-08-09** —
-   the exports now exist in **`DRC-120.blue/120.blue-with-inversion.txts/`**
-   *(that directory was called `txt/` until the 2026-08-14 rename)*:
+   the exports now exist in **`DRC-120.blue/120.blue.txts/`**
+   *(called `txt/` until 2026-08-14, then `120.blue-with-inversion.txts/`
+   until 2026-09-01)*:
    `L.120.Blue.txt`,
    `R.120.Blue.txt`, `L+R.120.Blue.txt`, plus the whole March-2025 and
    September-2025 design chains.
