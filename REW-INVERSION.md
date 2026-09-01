@@ -1804,6 +1804,7 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 |---|---|---|
 | Cal file effects | **included** | you are modelling the acoustic response as measured, and the mic calibration is part of what the measurement means |
 | **LF tail** | **yes**, at or just below the first measured bin: **16 Hz for the 2026-08-17 set**, 15 Hz for the older set | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
+| Slope | **24 dB/oct** for a ported box (12 for sealed) — but **12 dB/oct regardless of enclosure** if the corner lands within ~½ octave of the correction band's low edge | matches the speaker's physical roll-off; halves the group delay near the corner when the two sit close. See "the corner's distance from the band edge" below |
 | HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces run to the top of the sweep — 22.05 kHz on the 2026-08-17 set, 24 kHz where the sweep went to Nyquist — which is six octaves above the correction band, far enough that the edge cannot reach it. Confirm with the 6a subtraction rather than assuming |
 
 > ### ⚠ The LF tail is not optional — this guide said "no" and was wrong
@@ -2224,6 +2225,18 @@ separately deepens that cancellation.
 
 Name it `Fcommon`. There is only one, shared by both channels.
 
+> ### If the 20–200 Hz group-delay gate fails near the low edge
+> The **20 Hz** lower limit above is the default and correct starting point.
+> But it sits close to [step 4](#step-4--minimum-phase-first-time)'s
+> minimum-phase LF-tail corner — see that step's "corner's distance from the
+> band edge" callout for the mechanism. If `drc_acceptance.py` fails the group-delay excursion
+> test just above 20 Hz, the fix that touches only this step is: **raise this
+> lower limit to 25 Hz** (band-limit blend is centred on the limit, so 21 Hz
+> only fades in ~75 %, but it trims the excursion). Measured on the
+> 2026-08-31 multi-point rebuild: 27 → 22 ms at 21 Hz — an improvement, not on
+> its own a pass. Combine with the other two fixes in step 4's callout if 25 Hz
+> alone doesn't clear the gate; the trade is ~1 dB less taming right at 20 Hz.
+
 **7c — the per-channel filters, above 80 Hz.** Trace Arithmetic, **A over B**:
 
 | field | value |
@@ -2350,6 +2363,7 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 |---|---|---|
 | Cal file effects | **not included** | a filter has no microphone. Including the mic calibration would bake the microphone's response into what you play |
 | **LF tail** | **yes** — see the note below | as step 4: without it the transform corrupts the magnitude. This is the copy where it does the most damage |
+| Slope | **shallowest offered** (e.g. 6 dB/oct), or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `Fl` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
 | HF tail | no | as step 4 |
 
 > ### This is where the LF-tail error hurts most

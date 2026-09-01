@@ -6,7 +6,7 @@ no measurement data lives here.
 
 | document | what it is | PDF |
 |---|---|---|
-| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 50 pp |
+| [`REW-INVERSION.md`](REW-INVERSION.md) | step-by-step room correction by inversion in REW | 52 pp |
 | [`NOTES.md`](NOTES.md) | the working history, including the retractions | 38 pp |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | taking a finished filter into `omdrc-801N` — rates, headroom, provenance | 8 pp |
 | [`SUBWOOFER-INTEGRATION.md`](SUBWOOFER-INTEGRATION.md) | integrating subs under a single-DAC constraint | 6 pp |
