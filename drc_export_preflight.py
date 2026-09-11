@@ -13,8 +13,8 @@ deploy -- every text export unsmoothed and within 24 kHz, the file-naming
 resolution that decides which file plays which role (including refusing a
 directory that has both `LR.txt` and `L+R.txt`, since they say two
 conflicting things about the same curve), and the listening-position
-geometry comments (`* Note: ...`) the web UI's room diagram reads out of
-`L`/`R`/the aggregate. All four checks -- role tables, candidate-name
+geometry comments the web UI's room diagram reads out of `L`/`R`/the
+aggregate's Notes field. All four checks -- role tables, candidate-name
 matching, error/warning wording, and the geometry regexes -- are read
 directly from open-media-drc's own source
 (`scripts/new_filter_design.py`'s `discover()`, `measurement_distances()`,
@@ -100,16 +100,20 @@ _SPEAKER_WALL_DISTANCE = re.compile(
     re.IGNORECASE)
 _MARKER_COLOR = re.compile(r"\bmarker\s*:\s*([a-z]+)\b", re.IGNORECASE)
 
-# key, pattern, title, example comment. Order is display order.
+# key, pattern, title, example text. This is what to type into REW's Notes
+# field for the measurement -- REW itself writes the leading "* Note: " on
+# export, so it isn't something to type, and the match doesn't require the
+# word "Note" either: read_comments() joins every "*"-prefixed line, so the
+# pattern is found wherever it sits among REW's other comment fields.
 GEOMETRY_FIELDS = (
     ("front_wall_m",   _FRONT_WALL_DISTANCE,   "front wall to MLP",
-     "* Note: 4.18m from front wall"),
+     "4.18m from front wall"),
     ("speakers_m",     _SPEAKER_DISTANCE,      "MLP to speakers",
-     "* Note: 3.32m from speakers"),
+     "3.32m from speakers"),
     ("speaker_wall_m", _SPEAKER_WALL_DISTANCE, "speakers to front wall",
-     "* Note: 0.80m speakers to front wall"),
+     "0.80m speakers to front wall"),
     ("marker_color",   _MARKER_COLOR,          "floor-marker colour",
-     "* Note: marker: green"),
+     "marker: green"),
 )
 # The only combination new_filter_design.py itself warns about: neither
 # distance found anywhere in L/R/aggregate. speaker_wall_m and marker_color
@@ -381,8 +385,8 @@ def geometry_report(colour, paths):
             required = " (checked by the deploy tool)" if key in REQUIRED_BY_DEPLOY_TOOL \
                 else " (not required by the deploy tool, but the room diagram wants it)"
             lines.append(colour.warn(
-                f"{title:<24}: not found{required} -- add a comment such as "
-                f"`{example}`"))
+                f"{title:<24}: not found{required} -- put something like "
+                f"`{example}` in the measurement's Notes field"))
 
     ok = True
     for key, prev_value, prev_file, value, file_ in conflicts:
