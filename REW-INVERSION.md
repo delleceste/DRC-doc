@@ -1304,16 +1304,16 @@ its full version; read that if a line here doesn't make sense yet.
    null it should instead be regularised away from (§8).
    `Target ÷ LR-SP-MP` limited **20–80 Hz** (or 25–80 if chasing the
    group-delay gate) → `Fcommon`. `Target ÷ LX-MP` / `RX-MP` limited
-   80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `Fl` (and
-   `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+   80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `FL` (and
+   `FR`). `Max gain` **on, 0.0 dB** throughout — cut-only.
    *(Beta: `Max gain`, a dB ceiling. Stable: a `Regularisation`
    **percentage** instead — a different control, not a unit conversion of
    the same setting.)*
 8. **[Minimum phase, second time](#step-8--minimum-phase-second-time).**
-   Turns the raw `Fl`/`Fr` correction curve into a realisable causal filter
+   Turns the raw `FL`/`FR` correction curve into a realisable causal filter
    — the same reason as step 4, applied to the thing you're about to export
    rather than to a divisor.
-   `Fl`/`Fr` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
+   `FL`/`FR` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
    (beta goes to `0 dB/oct` — flat, no imposed roll-off) unless you want a
    deliberate subsonic high-pass. Cal file effects **off**.
 9. **[Bake in the crossover](#step-9--bake-the-crossover-correction-in-last).**
@@ -2078,7 +2078,7 @@ rename, not a dropped tag. Matches what both `../DRC-120.blue` and
 > band edge, the physical slope can cost more group delay than the gate allows.
 >
 > **Not `0 dB/oct`, even though the dialog offers it and step 8 recommends
-> it there.** The two steps tail different objects. Step 8's `Fl`/`Fr` are
+> it there.** The two steps tail different objects. Step 8's `FL`/`FR` are
 > filters that are already, genuinely unity below the band — `0 dB/oct`
 > states a true fact about them. `LX`/`RX`/`LR-SP` here are *measurements*
 > of a loudspeaker that really does roll off below its bass extension;
@@ -2450,12 +2450,12 @@ they are not a defect. On the 2026-08-11 build:
 |---|---|---|
 | `LX-MP` (the divisor) | 14 bins, 3.9 dB @ 35.5 Hz | **6 bins, 40.1 dB @ 188 Hz** |
 | `RX-MP` (the divisor) | 23 bins, 4.1 dB @ 50.5 Hz | 13 bins, 4.1 dB @ 57.9 Hz |
-| **`Fl`** (what ships) | **38 bins, 5.8 dB @ 98.9 Hz** | 12 bins, 3.0 dB @ 35.5 Hz |
+| **`FL`** (what ships) | **38 bins, 5.8 dB @ 98.9 Hz** | 12 bins, 3.0 dB @ 35.5 Hz |
 
 A rule applied to *any* feature would have rejected `LX-MP` over a 6-bin dip
 and thrown away a build whose filter is comfortably inside the threshold. The
 same applies to the 74 Hz front-wall null that a 12-cycle FDW exposes on the
-left channel (§8): across 60–90 Hz `LX-MP` swings **35.7 dB**, while `Fl`
+left channel (§8): across 60–90 Hz `LX-MP` swings **35.7 dB**, while `FL`
 swings **11.7 dB** — at the null itself the filter sits at exactly 0.00 dB,
 unity, with the cut confined to the shoulders. **Windowing revealing a null is
 working as intended; it is not a Step 6 failure.**
@@ -2473,7 +2473,7 @@ causes: it was applied to the wrong measurement; `Apply Windows` was never
 pressed; or the arithmetic in step 3 was done *before* step 2 and is holding
 stale data. Thirty bins is the acceptance threshold from
 [R8](#r8-acceptance-tests), applied one step early — and the surest version of
-this test is to run it on `Fl` itself once step 7 is done.
+this test is to run it on `FL` itself once step 7 is done.
 
 *(Optional belt-and-braces, step 4a: bake the smoothing in by round trip —
 apply 1/6 octave to `LX`/`RX`, export as text **with that smoothing selected
@@ -2533,8 +2533,8 @@ Name it `Fcommon`. There is only one, shared by both channels.
 
 Name it `Fper_L`. Repeat with B = `RX-MP` for `Fper_R`.
 
-**7d — combine.** Trace Arithmetic, **A times B**: `Fcommon × Fper_L` → `Fl`.
-Same with `Fper_R` → `Fr`.
+**7d — combine.** Trace Arithmetic, **A times B**: `Fcommon × Fper_L` → `FL`.
+Same with `Fper_R` → `FR`.
 
 Both factors are cut-only, so the product is cut-only: **`Max gain` remains
 selected and set to 0.0 dB for both divisions.** The
@@ -2641,14 +2641,14 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 
 ### Step 8 — Minimum phase, second time
 
-**Do:** **Generate minimum phase** on `Fl` → `LFilter`. Likewise `Fr` →
+**Do:** **Generate minimum phase** on `FL` → `LFilter`. Likewise `FR` →
 `RFilter`.
 
 | dialog option | set to | why |
 |---|---|---|
 | Cal file effects | **not included** | a filter has no microphone. Including the mic calibration would bake the microphone's response into what you play |
 | **LF tail** | **yes** — see the note below | as step 4: without it the transform corrupts the magnitude. This is the copy where it does the most damage |
-| Slope | **shallowest offered — the beta dialog goes down to `0 dB/oct`** — or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `Fl` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
+| Slope | **shallowest offered — the beta dialog goes down to `0 dB/oct`** — or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `FL` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
 | HF tail | no | as step 4 |
 
 > ### This is where the LF-tail error hurts most
@@ -2668,7 +2668,7 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 > It is what fails the [R8](#r8-acceptance-tests) narrowest-feature and
 > group-delay tests, both of which land at ~20 Hz.
 >
-> **Slope here is a real choice, not just conditioning.** `Fl` is a filter, not
+> **Slope here is a real choice, not just conditioning.** `FL` is a filter, not
 > a loudspeaker — it has no physical roll-off, and it is already unity below
 > the band limit. A steep tail imposes a subsonic high-pass on the deliverable.
 > That may be welcome, but decide it rather than inherit it: pick the
@@ -2678,11 +2678,11 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 > goal.** The beta dialog's slope field goes all the way down to 0, and
 > `0 dB/oct` means the minimum-phase transform extrapolates the magnitude
 > below the corner as **flat, at unity**, rather than tilting it into any
-> roll-off at all — matching what `Fl` already *is* there (§ above: unity
+> roll-off at all — matching what `FL` already *is* there (§ above: unity
 > below the band limit) instead of imposing a shape on top of it. Where 24 or
 > 12 dB/oct asks "how steep should the imposed high-pass be," 0 dB/oct is the
 > answer "there should be no imposed high-pass" — the softest filter this
-> field can produce, and the one that changes `Fl` least. Used on the current
+> field can produce, and the one that changes `FL` least. Used on the current
 > `../DRC-120.green` build (`L.Filter`/`R.Filter`, per its audit), with no ill
 > effect traceable to it: the build's remaining acceptance failures sit at
 > 78–81 Hz, an octave-plus above where this slope acts.
@@ -2941,7 +2941,7 @@ at **step 9**, where it is baked into the shipped filter.
 | # | applied to | producing | why |
 |---|---|---|---|
 | **1** | `LX`, `RX`, `LR-SP` | `LX-MP`, `RX-MP`, `LR-SP-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
-| **2** | `Fl`, `Fr` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
+| **2** | `FL`, `FR` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
 | **✗** | `X801` | — | **never.** Its magnitude is 0.00000 dB, so its minimum-phase copy is a unit impulse — you would delete the filter entirely |
 
 That last row is measurable, not rhetorical:
