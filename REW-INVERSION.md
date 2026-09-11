@@ -1273,7 +1273,8 @@ its full version; read that if a line here doesn't make sense yet.
    — the same reason as step 4, applied to the thing you're about to export
    rather than to a divisor.
    `Fl`/`Fr` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
-   unless you want a deliberate subsonic high-pass. Cal file effects **off**.
+   (beta goes to `0 dB/oct` — flat, no imposed roll-off) unless you want a
+   deliberate subsonic high-pass. Cal file effects **off**.
 9. **[Bake in the crossover](#step-9--bake-the-crossover-correction-in-last).**
    `X801` corrects the one thing a minimum-phase inversion is provably blind
    to — the crossover's all-pass phase (§3) — and it must go last because it
@@ -2482,7 +2483,7 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 |---|---|---|
 | Cal file effects | **not included** | a filter has no microphone. Including the mic calibration would bake the microphone's response into what you play |
 | **LF tail** | **yes** — see the note below | as step 4: without it the transform corrupts the magnitude. This is the copy where it does the most damage |
-| Slope | **shallowest offered** (e.g. 6 dB/oct), or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `Fl` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
+| Slope | **shallowest offered — the beta dialog goes down to `0 dB/oct`** — or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `Fl` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
 | HF tail | no | as step 4 |
 
 > ### This is where the LF-tail error hurts most
@@ -2507,6 +2508,27 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 > the band limit. A steep tail imposes a subsonic high-pass on the deliverable.
 > That may be welcome, but decide it rather than inherit it: pick the
 > **shallowest slope offered** if you want the filter left as designed.
+>
+> **`0 dB/oct` is on the table, and it is the correct choice for this exact
+> goal.** The beta dialog's slope field goes all the way down to 0, and
+> `0 dB/oct` means the minimum-phase transform extrapolates the magnitude
+> below the corner as **flat, at unity**, rather than tilting it into any
+> roll-off at all — matching what `Fl` already *is* there (§ above: unity
+> below the band limit) instead of imposing a shape on top of it. Where 24 or
+> 12 dB/oct asks "how steep should the imposed high-pass be," 0 dB/oct is the
+> answer "there should be no imposed high-pass" — the softest filter this
+> field can produce, and the one that changes `Fl` least. Used on the current
+> `../DRC-120.green` build (`L.Filter`/`R.Filter`, per its audit), with no ill
+> effect traceable to it: the build's remaining acceptance failures sit at
+> 78–81 Hz, an octave-plus above where this slope acts.
+>
+> **Do not confuse `0 dB/oct` with `No LF tail`.** They are opposites, not
+> degrees of the same thing. `No LF tail` leaves the magnitude undefined
+> below the corner and is the documented failure two paragraphs up — 2–13 dB
+> of corrupted magnitude, the mistake this whole callout exists to retract.
+> `0 dB/oct` is the LF tail **switched on**, with the mildest slope it can
+> extrapolate with. Turning the tail on is not optional; choosing 0 dB/oct
+> for its slope is.
 >
 > **The target is unaffected**, because Step 5 builds it from `LX`/`RX` rather
 > than the minimum-phase copies (that is the reason for the instruction). If
