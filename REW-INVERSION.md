@@ -1701,47 +1701,39 @@ of the five. Then apply each result to both of that position's captures with
 want, use `Align SPL` on each family separately and accept the 0.17 dB in the
 table above — it is what REW documents, and it needs nothing read back.
 
-**The `Align SPL...` dialog, field by field.** Two controls set the span the
-average is taken over, as a **centre frequency and a width in octaves**
-rather than a low/high pair:
+> **Remember what this whole sub-step is worth here first.** For a 20 cm
+> cluster the table above already showed **doing nothing** (0.01 dB rms,
+> 0.04 dB max) beats every alignment policy, including `Align SPL` itself
+> (0.09 dB rms, 0.17 dB max) — aligning is not fundamental to this
+> procedure, it only earns its place once the cluster spans a metre or
+> more. Everything below is for that wider-cluster case, or for whoever
+> reaches for `Align SPL` anyway; if you already decided to skip this
+> sub-step, skip this too and go to
+> [3c](#3c--form-the-mono-sum-at-each-position).
+
+**If you do use it, the `Align SPL...` dialog's two fields are worth
+setting rather than leaving alone**, since it is already the less accurate
+of the two "do align" options in the table above and there is no reason to
+add band mismatch on top:
 
 | field | set to | why |
 |---|---|---|
 | **Alignment center** | **1000 Hz** | geometric centre of 500 Hz–2 kHz |
 | **Alignment Span** | **2 octaves** | 500 Hz → 2 kHz — the same band this section's by-hand method already uses above |
 
-**Do not leave these at whatever the dialog opens with — set them
-explicitly, every time.** Two independent reasons:
+500 Hz–2 kHz is the same region the caution in step 1 already singles out
+as the one where microphone aiming matters and the capsule stops being
+effectively omnidirectional — comfortably above this room's ≈166 Hz
+Schroeder frequency, so the level differences it measures reflect distance,
+not modal structure. (1000 Hz is `√(500 × 2000)`; 500 → 2000 Hz is
+`log₂(2000/500) = 2` octaves.)
 
-1. Centre-and-span is not how this document (or REW's own SPL/Phase graph
-   options) normally states a band, so it is easy to leave the field at
-   whatever REW last remembered rather than the band you actually mean.
-   1000 Hz is `√(500 × 2000)`, and 500 → 2000 Hz is
-   `log₂(2000/500) = 2` octaves — that derivation is what makes these two
-   numbers *equal* "500 Hz–2 kHz," not a coincidence to be re-verified by eye
-   each session.
-2. **500 Hz–2 kHz is not an arbitrary convenient band.** It is the same
-   region the caution in step 1 already singles out as the one where
-   microphone aiming matters and the capsule stops being effectively
-   omnidirectional — comfortably above this room's ≈166 Hz Schroeder
-   frequency, so the level differences it measures reflect distance, not
-   modal structure. A lower band risks folding room-mode peaks and dips
-   into what is meant to be a clean measure of "how far is this seat from
-   the pair," which is the exact confound Rule 2 and the L-vs-R-vs-both
-   comparison table above exist to keep out.
-
-   *(This project's own recollection of the factory-default centre/span —
-   not independently confirmed, and REW's published help documents the
-   feature's purpose but not its default field values — is 500 Hz, 2
-   octaves, i.e. 250 Hz–1 kHz. If that is right, the default band reaches
-   down toward the Schroeder region instead of sitting safely above it,
-   which is itself an argument for overriding it here rather than trusting
-   whatever the dialog opens with.)*
-
-Set explicitly, `Align SPL` measures the same band the rest of this sub-step
-reasons about, so the 0.17 dB figure in the table above is what you should
-actually see — not an approximation of it, and not dependent on what REW
-happened to default to on this install.
+*(This project's own recollection of the factory-default centre/span — not
+independently confirmed, and REW's published help documents the feature's
+purpose but not its default field values — is 500 Hz, 2 octaves, i.e.
+250 Hz–1 kHz: closer to the Schroeder region than the band above. Worth
+checking on a clean install if it matters to you; it does not change the
+conclusion that this whole sub-step is optional at this cluster size.)*
 
 > ### ⚠ Never equalise L against R
 > The tempting move is to select `L L20` and `R L20` together and align them,
