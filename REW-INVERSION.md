@@ -1190,9 +1190,12 @@ be worth chasing, and localisation does depend on it.
 
 ![The REW inversion chain](fig-chain.png)
 
-Eleven steps (the diagram folds 10 and 11 into one box). Steps 1 to 3 turn ten
-sweeps into the three traces everything else divides by; steps 4 to 11 are the
-same whether you measured one position or five.
+Eleven steps build and accept the filter (the diagram folds 10 and 11 into one
+box). Steps 1 to 3 turn ten sweeps into the three traces everything else
+divides by; steps 4 to 11 are the same whether you measured one position or
+five. A twelfth, [step 12](#step-12--prepare-the-export-bundle-for-open-media-drc),
+follows once step 11 accepts: preparing the export directory
+`DEPLOYMENT.md` and open-media-drc's installer both expect.
 
 **Where the actions live.** In V5.40 beta, select the traces you want in the
 **All SPL** legend, then right-click the graph: `Align SPL...`,
@@ -1330,6 +1333,16 @@ its full version; read that if a line here doesn't make sense yet.
     catches what a magnitude plot cannot show at all (R8's worked example).
     `drc_acceptance.py` on both channels. Fails → back to step 2, not a
     post-process patch on the WAV.
+12. **[Prepare the export bundle](#step-12--prepare-the-export-bundle-for-open-media-drc).**
+    Ten files, condensed from `DEPLOYMENT.md`. The one to get right: `L`/`R`
+    still carry step 2's FDW at this point — `L.txt`/`R.txt`/`LR.txt` must
+    instead come from **unwindowed duplicates** (untick FDW, re-export),
+    because open-media-drc's own automated check only catches REW's
+    `Smoothing` setting, not FDW, and would accept a windowed export
+    silently. Set `Smoothing: None` on every export. Build
+    `L.Filtered`/`R.Filtered`/`LR.Filtered` by multiplying those same
+    unwindowed duplicates by the imported `FLX-trimmed`/`FRX-trimmed`
+    (checking the import level, as step 9 did for `X801`).
 
 ---
 
@@ -2745,6 +2758,12 @@ are orthogonal. There is no double-correction to worry about.
    **131072 samples** — there is no tap count to set, the export length is
    fixed.
 3. Name them `FLX-trimmed-48k.wav` / `FRX-trimmed-48k.wav`.
+4. Alongside the WAVs, export the same two traces as **text**, `Smoothing:
+   None` — `FLX-trimmed.txt` / `FRX-trimmed.txt`. Deployment doesn't
+   convolve with these; it uses them as an independent statement of what
+   the filter is supposed to do, and checks the WAVs against it. Two of
+   the ten files [step 12](#step-12--prepare-the-export-bundle-for-open-media-drc)
+   needs — the rest of that bundle isn't produced yet at this point.
 
 **Trimming never changes the filter's response.** `FLX` and `FLX-trimmed` were
 compared bin by bin: identical to **0.0000 dB rms at every frequency**. All it
@@ -2790,6 +2809,104 @@ Exit status 0 = pass. Full description in [R8](#r8-acceptance-tests).
 
 **If it fails**, do not deploy and do not post-process. Go back to step 2,
 lower the FDW cycles, and re-run the chain from step 3. A filter that fails these tests fails audibly.
+
+---
+
+### Step 12 — Prepare the export bundle for open-media-drc
+
+**This is the condensed version.** `../open-media-drc/doc/FILTER_PROVENANCE_AND_RESPONSE.md`
+and `DEPLOYMENT.md` (here) are the reference — read one of those for the
+declare/tag/build/publish chain that comes after this step. This step is
+only about getting the **export directory** into the shape that chain, or
+the web UI's live installer, requires. Nothing below opens BruteFIR or
+touches a deployed room; it is still REW work.
+
+**The ten files, and what each one actually is** (per
+`open-media-drc/scripts/README.md`; case-insensitive, `.txt` optional):
+
+| file | what it is | source |
+|---|---|---|
+| `L.txt`, `R.txt` | the room before correction, left/right | **a sweep** — see the warning below |
+| `LR.txt` | the room before correction, the pair — REW's vector average | a sweep, `Vector average` of the two above |
+| `FLX-trimmed.txt`, `FRX-trimmed.txt` | the finished filter's own response | step 10.4 |
+| `FLX-trimmed-48k.wav`, `FRX-trimmed-48k.wav` | the deployable impulses | step 10 |
+| `L.filtered.txt`, `R.filtered.txt` | the room, with the filter applied — the prediction | built here |
+| `LR.filtered.txt` | the filtered pair | built here, `Vector average` of the two above |
+
+Pick **one** aggregate convention and hold it: `LR` throughout, never mixed
+with `L+R.txt`/`L+R.filtered.txt`. `DEPLOYMENT.md` §4.1 confirms this
+explicitly — *"for a filter built by this guide's procedure it is
+`vector_average`: step 3c forms the vector `L + R` and then subtracts
+6.0206 dB, which is `(L + R) / 2`."* A design that mixes `LR` with `L+R`
+anything is refused outright, because the two curves would then be
+measuring different things.
+
+> ### ⚠ `L.txt`/`R.txt`/`LR.txt` must be a sweep — not the traces this
+> ### procedure has been building all along
+> This is the mistake the checklist below exists to prevent. `L`/`R` as
+> they exist by this point in the session carry **step 2's FDW** — that is
+> correct and required for building the filter, and exactly wrong for
+> these three files. open-media-drc's own classification is explicit:
+> `L.txt`/`R.txt`/`LR.txt` are *"the room before correction… a sweep"* —
+> a direct, unregularised capture, not a divisor.
+>
+> **The open-media-drc install will not catch this for you.** Its
+> unsmoothed check looks for one specific thing — REW's `Smoothing`
+> header, the 1/3-octave-etc. display-smoothing setting — and an
+> FDW-windowed export states `Smoothing: None` just as honestly as a raw
+> one does. FDW is a different REW feature entirely, and nothing in the
+> validator inspects it. An FDW-windowed `L.txt` would be **accepted,
+> published, and shown on the page as the measured room** — quietly wrong,
+> exactly the failure mode step 2 itself warns about ("the window sits in
+> the wrong place... quietly, with no error message"), one stage further
+> downstream than that warning covers.
+
+**Do:**
+
+1. **Get unwindowed copies of the Main Listening Position's `L`/`R`.**
+   `L C`/`R C` (or whichever capture is the primary seat) already carry the
+   FDW applied in step 2 — do not touch those; the filter still needs them
+   exactly as they are. Instead, **duplicate** each one in REW's
+   measurement list, and on the duplicates only: open **IR Windows**,
+   untick **Add FDW**, press **`Apply Windows`**. Per step 2's own note,
+   this is fully reversible on an *original* capture — the duplicate
+   returns to exactly what the sweep measured. Name the duplicates so the
+   provenance is obvious in the session — this project's own declared
+   designs use an **`.orig`** suffix in the REW trace name (e.g.
+   `L 120.Rscreen.orig`) for exactly this reason; the trace name and the
+   exported file name don't have to match.
+2. **Set REW's `Smoothing` menu to `None`** before exporting anything in
+   this step. This is the separate control [§9](#9-which-smoothing-and-why-the-smoothing-menu-will-not-help-you)
+   already established doesn't reach trace arithmetic — it *does* reach a
+   plain text export, which is exactly the surface this step uses.
+3. **Form `LR`.** Select the two unwindowed duplicates, `Vector average` —
+   same operation as [3c](#3c--form-the-mono-sum-at-each-position), on
+   different inputs. Export all three: `L.txt`, `R.txt`, `LR.txt`.
+4. **Build the prediction.** Import `FLX-trimmed-48k.wav` and
+   `FRX-trimmed-48k.wav` as measurements (`File → Import → Impulse
+   Response`), the same mechanism step 3e used for `X801`.
+   **Check the import level before trusting it** — REW's impulse import
+   has no calibration reference for a filter WAV in general, not only for
+   an all-pass one; step 3e measured `X801` importing at +117 dB for
+   exactly this reason. Verify against a point you know (e.g. the filter's
+   own passband gain from `FLX-trimmed.txt`) and correct with `SPL offset`
+   → `Add to data` if it's off, rather than assuming it imported at 0 dB.
+5. **Multiply.** Trace Arithmetic, **A times B**: the *unwindowed* `L`
+   duplicate × the imported `FLX-trimmed` → `L.Filtered`. Same for
+   `R` × `FRX-trimmed` → `R.Filtered`. `Vector average` the two →
+   `LR.Filtered`. Export all three, `Smoothing: None` again.
+6. **Verify the set** before handing it to `new_filter_design.py` or the
+   web installer: exactly ten files, one aggregate convention throughout,
+   every text export's header literally reads `* Smoothing: None` (not
+   merely silent on the subject — an export that states no smoothing at
+   all is refused too, because it can't be *shown* to be unsmoothed), and
+   none reaches past 24 kHz. These are the same checks the tool runs; this
+   is catching them yourself first, with the file names in front of you
+   rather than in a refusal message.
+7. **Commit.** The export directory must be a Git work tree, and all ten
+   files plus the `.mdat` must be committed — not merely staged — before
+   deployment can read them back later. See `DEPLOYMENT.md` §4 for what
+   comes next: declare the roles, tag, build, publish.
 
 ---
 
