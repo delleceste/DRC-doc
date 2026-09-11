@@ -2059,6 +2059,18 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 > 12 for a sealed one. But see the next paragraph: if the corner sits near the
 > band edge, the physical slope can cost more group delay than the gate allows.
 >
+> **Not `0 dB/oct`, even though the dialog offers it and step 8 recommends
+> it there.** The two steps tail different objects. Step 8's `Fl`/`Fr` are
+> filters that are already, genuinely unity below the band — `0 dB/oct`
+> states a true fact about them. `LX`/`RX`/`LR-SP` here are *measurements*
+> of a loudspeaker that really does roll off below its bass extension;
+> `0 dB/oct` would assert it keeps outputting at full level arbitrarily far
+> below that, which is false. And because minimum phase is a *global*
+> Hilbert transform of log-magnitude, an untrue magnitude story below the
+> corner buys an untrue phase story inside the correction band, not just
+> below it — the corner-distance discussion just below is that same
+> mechanism at work for a slope that's merely too steep, not wrong in kind.
+>
 > **The corner's distance from the band edge is a group-delay budget, not just
 > a splice-quality one.** A 24 dB/oct tail is a 4th-order high-pass; its group
 > delay peaks just above the corner and is still large half an octave up. REW
