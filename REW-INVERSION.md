@@ -1256,9 +1256,13 @@ its full version; read that if a line here doesn't make sense yet.
      discard spatial phase. `RMS average` each channel's five positions →
      `L-SP`/`R-SP`; `RMS average` the five `LR` traces → `LR-SP`. Never
      `Vector average` across positions — it manufactures new nulls.
-     *(`-SP` = **sp**atial average — the suffix flags "already
-     RMS-averaged across the five positions," distinct from a plain
-     `L`/`R`/`LR`, which is still one position.)*
+     *(`-SP` = **sp**atial average — it names the dimension being averaged
+     over, the five mic **positions**, not what survives the average. That
+     it's an RMS (magnitude-only) average is a separate fact, stated by
+     "discard spatial phase" above: `-SP` flags "already averaged across
+     positions," distinct from a plain `L`/`R`/`LR`, which is one position
+     and — for `LR` specifically — still carries the phase 3c built it
+     with.)*
    - **[3e](#3e--bake-the-crossover-correction-into-the-channel-averages).**
      Import `X801.wav` (confirm it wasn't already loaded before step 2's
      `Apply to all`; offset **−117 dB** → `Add to data` so it reads 0 dB,
