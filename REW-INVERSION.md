@@ -1235,12 +1235,34 @@ its full version; read that if a line here doesn't make sense yet.
    spatial average (for the per-channel filter above 80 Hz) and the mono
    sum's spatial average (for the common filter below 80 Hz, §11 — the two
    speakers sum coherently down there, so only the sum may be corrected).
-   `RMS average` each channel's five positions → `L-SP`/`R-SP`. Form the
-   mono sum **per position** with `Vector average` first, *then* `RMS
-   average` the five sums → `LR-SP`. Never `Vector average` across
-   positions. *(`-SP` = **sp**atial average — the suffix flags "already
-   RMS-averaged across the five positions," distinct from a plain `L`/`R`/
-   `LR`, which is still one position.)*
+   Five sub-steps, in order — arithmetic is a snapshot, so redoing an
+   earlier one means redoing everything after it.
+   - **[3a](#3a--collapse-any-repeat-sweeps-optional)**, optional. Repeat
+     captures at one position are a repeatability check, not extra spatial
+     samples: `Vector average` them down to one trace per channel per
+     position *before* anything else sees them, or skip if you took one
+     sweep each.
+   - **[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)**,
+     optional at a 20 cm cluster — **skip it here**; do nothing rather than
+     `Align SPL`, per the table in that sub-step. Only earns its place once
+     positions span a metre or more.
+   - **[3c](#3c--form-the-mono-sum-at-each-position).** The one place
+     inter-channel phase is used. **Do:** for each of the five positions,
+     select its `L` and `R` capture and choose **`Vector average`**. Name
+     the results `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20`.
+   - **[3d](#3d--average-across-positions--three-rms-averages).** Now
+     discard spatial phase. `RMS average` each channel's five positions →
+     `L-SP`/`R-SP`; `RMS average` the five `LR` traces → `LR-SP`. Never
+     `Vector average` across positions — it manufactures new nulls.
+     *(`-SP` = **sp**atial average — the suffix flags "already
+     RMS-averaged across the five positions," distinct from a plain
+     `L`/`R`/`LR`, which is still one position.)*
+   - **[3e](#3e--bake-the-crossover-correction-into-the-channel-averages).**
+     Import `X801.wav` (confirm it wasn't already loaded before step 2's
+     `Apply to all`; offset **−117 dB** → `Add to data` so it reads 0 dB,
+     not the ≈+117 dB REW's import gives it with no calibration reference
+     to work from). Then `LX` = `L-SP × X801`, `RX` = `R-SP × X801` — the
+     system as it will actually play, crossover included, before inversion.
 4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
    Converts a magnitude-only divisor into a causal impulse response, so
    dividing by it later doesn't ask REW to invent phase from nowhere.
