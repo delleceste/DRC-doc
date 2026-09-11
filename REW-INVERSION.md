@@ -1945,6 +1945,46 @@ replaced by something that is *not* a pure all-pass (`Xo801`, which adds a
 bass-alignment term, is such a thing) the sub-step becomes load-bearing without
 warning.
 
+> ### ⚠ Multiply, *then* take minimum phase — never the other order
+> "Identical" above is not a coincidence of this particular file; it follows
+> from what `Generate minimum phase` actually computes. Minimum phase is the
+> Hilbert transform of **log-magnitude**, and the transform is linear:
+> ```
+> minphase(L-SP × X801) = Hilbert(log|L-SP| + log|X801|)
+>                        = Hilbert(log|L-SP| + 0)          since |X801| = 1
+>                        = Hilbert(log|L-SP|) = minphase(L-SP)
+> ```
+> `X801`'s magnitude contributes exactly nothing to the Hilbert transform, so
+> **as long as minimum-phase generation is the *last* operation**, it does not
+> matter whether you multiply by `X801` before or after — both routes land on
+> `minphase(L-SP)`, with none of `X801`'s actual phase `θ_X` in it. That is
+> the mathematical content of "`LX-MP` and `L-MP` are identical."
+>
+> **Reversing the order — minimum phase first, multiply last — is not the
+> same operation, and it is wrong.** `L-MP` already has its phase fixed at
+> `Hilbert(log|L-SP|)`. Multiplying it by `X801` afterward *adds* `X801`'s
+> real, physical rotation `θ_X` on top:
+> ```
+> L-MP × X801:  magnitude |L-SP| × 1 = |L-SP|          (same as above)
+>               phase     Hilbert(log|L-SP|) + θ_X       ← X801's real phase, now present
+> ```
+> That result is **not minimum phase** — `θ_X` is exactly the excess phase
+> §2 defines a crossover all-pass to be, and a minimum-phase trace by
+> definition carries none. Use it as the step 7 divisor and the division
+> stops being the safe, magnitude-only inversion steps 4 and 8 exist to
+> guarantee: R4's own table is explicit that dividing by a non-`-MP` trace
+> "inverts magnitude **and** … excess phase" — acausal, pre-ringing. The
+> filter would then try to *invert* the crossover rotation it is about to
+> receive cleanly and separately at step 9, defeating the orthogonality that
+> section relies on (`LFilter` contributing "exactly nothing to crossover
+> phase").
+>
+> **The rule, stated once:** minimum-phase generation must be the last thing
+> that happens to a trace before it is used as a divisor. Multiplying by a
+> flat-magnitude trace before that point is free — §above shows why — but
+> multiplying afterward is not a stylistic variant, it is a different, and
+> broken, result.
+
 **And why `LR-SP` is left alone.** The same all-pass is applied to both
 channels, so it cancels out of their ratio: `(L·X + R·X)/2 = X·(L + R)/2`, and
 the magnitude of the sum is unchanged. Since `LR-SP` is taken to minimum phase
