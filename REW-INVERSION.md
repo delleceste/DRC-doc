@@ -2910,8 +2910,13 @@ measuring different things.
 
    Run it on the export directory. It mirrors `new_filter_design.py`'s own
    file-role resolver — including the `LR`/`L+R` conflict check above —
-   and its unsmoothed/24 kHz checks, without needing SoX or a Git checkout
-   of `open-media-drc` to run. It does **not** replace the TXT↔WAV
+   its unsmoothed/24 kHz checks, and the listening-position `* Note:`
+   comments the web UI's room diagram reads out of `L`/`R`/the aggregate
+   (front wall to MLP, MLP to speakers, speakers to front wall,
+   floor-marker colour — case-insensitive, decimal commas normalised).
+   Missing comments only warn, matching the real tool; conflicting values
+   between files fail, also matching it. None of this needs SoX or a Git
+   checkout of `open-media-drc` to run. It does **not** replace the TXT↔WAV
    residual check (that needs SoX + NumPy); a clean pass here still means
    running `new_filter_design.py --dry-run` before deploying, not skipping
    it.
