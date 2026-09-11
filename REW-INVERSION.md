@@ -2015,7 +2015,7 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 |---|---|---|
 | Cal file effects | **included** | you are modelling the acoustic response as measured, and the mic calibration is part of what the measurement means |
 | **LF tail** | **yes**, at or just below the first measured bin: **16 Hz for the 2026-08-17 set**, 15 Hz for the older set | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
-| Slope | **24 dB/oct** for a ported box (12 for sealed) — but **12 dB/oct regardless of enclosure** if the corner lands within ~½ octave of the correction band's low edge | matches the speaker's physical roll-off; halves the group delay near the corner when the two sit close. See "the corner's distance from the band edge" below |
+| Slope | **24 dB/oct** for a ported box (12 for sealed) — but **12 dB/oct regardless of enclosure** if the **LF-tail corner** (the field just above, *not* the sweep-start frequency — REW floors it at sweep-start + 1 Hz) is **≥ 20/√2 ≈ 14.14 Hz**, i.e. within ½ octave of this project's 20 Hz correction-band low edge | matches the speaker's physical roll-off; halves the group delay near the corner when the two sit close. See "the corner's distance from the band edge" below |
 | HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces run to the top of the sweep — 22.05 kHz on the 2026-08-17 set, 24 kHz where the sweep went to Nyquist — which is six octaves above the correction band, far enough that the edge cannot reach it. Confirm with the 6a subtraction rather than assuming |
 
 > ### ⚠ The LF tail is not optional — this guide said "no" and was wrong
@@ -2063,12 +2063,17 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 > a splice-quality one.** A 24 dB/oct tail is a 4th-order high-pass; its group
 > delay peaks just above the corner and is still large half an octave up. REW
 > floors the corner field at **sweep-start + 1 Hz**, so a sweep that started at
-> 16 Hz forces the corner to 17 Hz — only ½ octave below a 20 Hz band edge. The
-> band-limited division then inherits that phase and the group-delay acceptance
-> test fails at ~21 Hz: measured **+22 ms against the 10 ms gate**, with the
-> filter's *magnitude* already clamped flat there, so it is purely the tail.
-> Moving the **target's** LF cutoff (step 5) does not touch this — it is a
-> different corner. Three ways out, cheapest first:
+> 16 Hz forces the corner to 17 Hz — only ½ octave below a 20 Hz band edge.
+> **"Within ½ octave of 20 Hz" means the corner sits at or above
+> `20 ÷ √2 ≈ 14.14 Hz`** — half an octave is a factor of `√2`, not 2, so this
+> triggers more easily than it sounds: a 12–13 Hz sweep-derived corner clears
+> it, a 15–16 Hz one (this project's actual `120.blue`/`120.green` captures,
+> which start ≈15 Hz rather than step 1's recommended 12–14) does not. The
+> band-limited division then inherits that phase and the group-delay
+> acceptance test fails at ~21 Hz: measured **+22 ms against the 10 ms gate**,
+> with the filter's *magnitude* already clamped flat there, so it is purely
+> the tail. Moving the **target's** LF cutoff (step 5) does not touch this —
+> it is a different corner. Three ways out, cheapest first:
 > - **Drop the tail to 12 dB/oct.** Halves the group delay near the corner. The
 >   gentler magnitude roll below the corner only asks for more sub-corner LF,
 >   which cut-only clamps — so it costs nothing real. Apply it in **both**
