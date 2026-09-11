@@ -1281,10 +1281,17 @@ its full version; read that if a line here doesn't make sense yet.
    this one. HF tail off.
 5. **[Build the target](#step-5--build-the-target).** What you want the room
    to measure like — everything downstream is this divided by what it
-   actually measures.
-   Load a house curve (no scoop if the room already runs full —
-   `house-curve-harman-fuller.txt`), let REW set the level, export as the
-   target trace.
+   actually measures. A common target, not each channel's own smoothed
+   response, so correction doesn't pull the stereo image.
+   `RMS average` `LX`/`RX` → `L-R RMS average`. Open it in the **EQ
+   window**; load a house curve there if you want one (no scoop if the
+   room already runs full — `house-curve-harman-fuller.txt`). Press
+   **`Calculate`** to set the target level from that response — REW
+   anchors it to the speaker's midrange, which is the number to check it
+   against, not the neighbouring bass. Move the target's LF cutoff to
+   5–10 Hz, below the correction band. Save the shape: this **generates a
+   new measurement**, `Target L-R RMS average`, which is what step 7
+   divides by — magnitude only, no phase to speak of.
 6. **[Stop and verify](#step-6--stop-and-verify).** A narrow dip in an
    `-MP` divisor becomes a narrow **boost** once you divide by it — the one
    place a defect is cheaper to catch than to build and then discover.
