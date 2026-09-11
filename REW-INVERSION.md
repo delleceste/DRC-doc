@@ -1406,6 +1406,18 @@ Then press **`Apply to all, keep ref time`**. Apply it to every original L and
 R capture and to any measured L+R capture. Never apply it to `X801`, and do
 not put it back on a derived average.
 
+> ### ⚠ `X801` must not be in the measurement list yet
+> `Apply to all` means all — every measurement currently loaded, with no way
+> to exclude one from the selection. `X801` is not imported until
+> [3e](#3e--bake-the-crossover-correction-into-the-channel-averages), several
+> sub-steps later, precisely so this button cannot reach it. If you are
+> re-running this step on a session where `X801` was imported early — for
+> reference, or left over from a previous build — remove it from the
+> measurement list (or at least deselect it) before pressing `Apply to all`,
+> then re-import it fresh at 3e. Windowing `X801` is not a small error: see
+> "Never window `X801`" below step 3e for what an FDW does to an all-pass
+> designed to be unwindowed.
+
 > ### ⚠ The order is load-bearing: window first, average second
 > The tempting alternative is to average the raw captures and apply the FDW to
 > `L-SP` and `R-SP` afterwards. It is not available, and it would be wrong if
@@ -1880,8 +1892,17 @@ assumes both divisors describe the same set of listening points.
 
 1. `File → Import → Impulse Response` → `X801.wav`. Name it `X801 (revised)`.
    **Leave every window control on it alone** — see the warning below.
-2. Trace Arithmetic: `LX` = **A × B**, A = `L-SP`, B = `X801 (revised)`.
-3. Likewise `RX` = `R-SP` × `X801 (revised)`.
+2. **Check its level, and correct it if needed.** REW's impulse-response
+   import has no calibration reference for a filter WAV, so it computes an
+   SPL from the raw sample values rather than reporting the 0 dB an all-pass
+   actually is — on this file, that reads as **≈ +117 dB**. Right-click the
+   SPL & Phase graph → **`SPL offset`** → **−117 dB** → **`Add to data`**
+   until the trace sits at 0 dB. Skip this and every trace built from
+   `X801 (revised)` — `LX`, `RX`, and everything downstream through `FLX`/
+   `FRX` — inherits the same +117 dB, which the cut-only `Max gain` clamp in
+   step 7 will then fight rather than the real correction curve.
+3. Trace Arithmetic: `LX` = **A × B**, A = `L-SP`, B = `X801 (revised)`.
+4. Likewise `RX` = `R-SP` × `X801 (revised)`.
 
 **Why:** you are going to invert the system *as it will actually play*, and it
 will play through the crossover correction. Everything you then look at on
