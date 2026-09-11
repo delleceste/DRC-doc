@@ -18,6 +18,14 @@ no measurement data lives here.
 ./make-pdf.sh REW-INVERSION.md      # default target is NOTES.md
 ```
 
+## Claude skill
+
+`.claude/skills/rew-inversion-audit/` — invoke with `/rew-inversion-audit`,
+or just ask Claude to review a filter export / explain a `drc_acceptance.py`
+failure and it triggers on its own. Audits REW inversion-method exports
+against `REW-INVERSION.md`'s procedure and runs/explains the acceptance
+tests. See the skill file for the full brief.
+
 ## Tools
 
 | | |
