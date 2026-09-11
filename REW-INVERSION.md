@@ -1272,9 +1272,13 @@ its full version; read that if a line here doesn't make sense yet.
 4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
    Converts a magnitude-only divisor into a causal impulse response, so
    dividing by it later doesn't ask REW to invent phase from nowhere.
-   `LX`/`RX`/`LR-SP` → `-MP` copies. LF tail **on**, corner at the sweep
-   start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave
-   of the correction band's low edge. HF tail off.
+   `LX`/`RX`/`LR-SP` → `-MP` copies. **Cal file effects included** — this
+   is modelling the acoustic response as measured, and the mic calibration
+   is part of what that means (contrast step 8, where it's excluded: a
+   filter has no microphone). LF tail **on**, corner at the sweep start;
+   slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave of the
+   correction band's low edge — never 0 dB/oct, that's step 8's move, not
+   this one. HF tail off.
 5. **[Build the target](#step-5--build-the-target).** What you want the room
    to measure like — everything downstream is this divided by what it
    actually measures.
