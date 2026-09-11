@@ -942,7 +942,7 @@ ITU), chosen for the same reason: localisation cues are weak below it.
 ### Building it: two divisions, spliced at 80 Hz
 
 ```
-FL  =  [ Target ÷ SUM ]   ×   [ Target ÷ LX ]
+FL  =  [ Target ÷ LR ]   ×   [ Target ÷ LX ]
         limited 20–80 Hz      limited 80–225 Hz
 ```
 
@@ -952,9 +952,9 @@ limits each reverts to unity, so only one is ever doing work:
 
 | | below 80 Hz | above 80 Hz |
 |---|---|---|
-| `Target ÷ SUM`, limited 20–80 | active | **unity** |
+| `Target ÷ LR`, limited 20–80 | active | **unity** |
 | `Target ÷ LX`, limited 80–225 | **unity** | active |
-| **product** | **Target ÷ SUM** — common | **Target ÷ LX** — per channel |
+| **product** | **Target ÷ LR** — common | **Target ÷ LX** — per channel |
 
 The splice is seamless because REW's two band-limit ramps are
 **complementary**: the roll-off at the upper limit of the first is exactly one
@@ -962,7 +962,7 @@ minus the rise at the lower limit of the second, each a raised cosine over one
 octave. So in decibels the product is
 
 ```
-FL(dB)  =  w·(Target − SUM)  +  (1 − w)·(Target − LX),     w: 1 → 0 over 57–113 Hz
+FL(dB)  =  w·(Target − LR)  +  (1 − w)·(Target − LX),     w: 1 → 0 over 57–113 Hz
 ```
 
 — a clean crossfade from the common correction to the per-channel one. Nothing
@@ -976,16 +976,16 @@ steps, and at no frequency is any correction applied twice.
 
 > ### The equivalent form, and why it is the worse way to build it
 > The same filter can be written as a common correction times a *differential*
-> one, `(Target ÷ SUM) × (SUM ÷ LX)`, with the first factor spanning the full
-> 20–225 Hz and the second limited to 80–225. `SUM` then cancels algebraically
+> one, `(Target ÷ LR) × (LR ÷ LX)`, with the first factor spanning the full
+> 20–225 Hz and the second limited to 80–225. `LR` then cancels algebraically
 > above 80 Hz and the result is the same filter — measured on the 2026-08-11
 > data, the two agree to **0.088 dB rms and 0.425 dB maximum** over 20–225 Hz.
 >
-> Prefer the spliced form anyway. `SUM ÷ LX` is a ratio of two *measurements*,
+> Prefer the spliced form anyway. `LR ÷ LX` is a ratio of two *measurements*,
 > so it genuinely needs to boost wherever a channel sits below the sum, and
 > clamping it breaks the algebra:
 >
-> | | `(T÷SUM) × (SUM÷LX)` | **`(T÷SUM) × (T÷LX)`** |
+> | | `(T÷LR) × (LR÷LX)` | **`(T÷LR) × (T÷LX)`** |
 > |---|---|---|
 > | boost the second factor wants | **+6.59 dB** | +0.22 dB |
 > | `Max gain` value it must be given | **+6.0 dB** | **0.0 dB** |
@@ -1237,12 +1237,14 @@ its full version; read that if a line here doesn't make sense yet.
    speakers sum coherently down there, so only the sum may be corrected).
    `RMS average` each channel's five positions → `L-SP`/`R-SP`. Form the
    mono sum **per position** with `Vector average` first, *then* `RMS
-   average` the five sums → `SUM-SP`. Never `Vector average` across
-   positions.
+   average` the five sums → `LR-SP`. Never `Vector average` across
+   positions. *(`-SP` = **sp**atial average — the suffix flags "already
+   RMS-averaged across the five positions," distinct from a plain `L`/`R`/
+   `LR`, which is still one position.)*
 4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
    Converts a magnitude-only divisor into a causal impulse response, so
    dividing by it later doesn't ask REW to invent phase from nowhere.
-   `LX`/`RX`/`SUM-SP` → `-MP` copies. LF tail **on**, corner at the sweep
+   `LX`/`RX`/`LR-SP` → `-MP` copies. LF tail **on**, corner at the sweep
    start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave
    of the correction band's low edge. HF tail off.
 5. **[Build the target](#step-5--build-the-target).** What you want the room
@@ -1261,7 +1263,7 @@ its full version; read that if a line here doesn't make sense yet.
    keeps the sum-only correction (§11) from ever reaching a per-channel
    trace, and the cut-only ceiling stops the inversion from boosting into a
    null it should instead be regularised away from (§8).
-   `Target ÷ SUM-MP` limited **20–80 Hz** (or 25–80 if chasing the
+   `Target ÷ LR-MP` limited **20–80 Hz** (or 25–80 if chasing the
    group-delay gate) → `Fcommon`. `Target ÷ LX-MP` / `RX-MP` limited
    80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `Fl` (and
    `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
@@ -1507,7 +1509,7 @@ You have ten windowed captures. The rest of the procedure needs exactly
 |---|---|---|
 | `L-SP` | the left channel, averaged over the five positions | the target, and the per-channel filter above 80 Hz |
 | `R-SP` | the right channel, same | the target, and the per-channel filter above 80 Hz |
-| `SUM-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| `LR-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 
 #### The word "family"
 
@@ -1517,7 +1519,7 @@ Used throughout this step, and it means exactly one of three sets:
 |---|---|
 | **L family** | `L C`, `L F20`, `L B20`, `L L20`, `L R20` — the left speaker measured at the five positions |
 | **R family** | `R C`, `R F20`, `R B20`, `R L20`, `R R20` — the right speaker at the same five |
-| **SUM family** | `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` — built in 3c, one per position |
+| **LR family** | `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20` — built in 3c, one per position |
 
 A family is a set of five *positions*, always one channel or one sum — never
 a mixture of L and R. Each family gets averaged into exactly one spatial
@@ -1768,8 +1770,8 @@ This is the step Rule 1 exists for, and the only place inter-channel phase is
 ever used.
 
 **Do:** for each of the five positions, select its `L` and `R` capture and
-choose **`Vector average`**. Name the results `SUM C`, `SUM F20`, `SUM B20`,
-`SUM L20`, `SUM R20`.
+choose **`Vector average`**. Name the results `LR C`, `LR F20`, `LR B20`,
+`LR L20`, `LR R20`.
 
 **Use `Vector average`, not `Vector sum`:**
 
@@ -1787,7 +1789,7 @@ A physical L+R sweep is `L + R`, so it sits **6.0206 dB above** REW's
 1. make a response copy, so the raw capture stays untouched;
 2. right-click the **SPL & Phase** graph → **`SPL offset`** → **−6.0206 dB** →
    **`Add to data`**;
-3. name it `SUM C` and use it in place of the calculated one. Keep the
+3. name it `LR C` and use it in place of the calculated one. Keep the
    calculated version alongside as a check.
 
 > ### The 6.0206 dB is exact, and it has been verified twice
@@ -1821,7 +1823,7 @@ right-click the graph and choose **`RMS average`**.
 |---|---|
 | `L C`, `L F20`, `L B20`, `L L20`, `L R20` | **`L-SP`** |
 | `R C`, `R F20`, `R B20`, `R L20`, `R R20` | **`R-SP`** |
-| `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` | **`SUM-SP`** |
+| `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20` | **`LR-SP`** |
 
 No further alignment here. If you applied position offsets in 3b the sums
 already carry them, and a family is never aligned a second time.
@@ -1845,7 +1847,7 @@ which it deliberately refuses to correct.
 five-position channel average against a four-position sum — the 80 Hz splice
 assumes both divisors describe the same set of listening points.
 
-> ### "Never average L with R" — and why `SUM-SP` is not a violation of it
+> ### "Never average L with R" — and why `LR-SP` is not a violation of it
 > Standard REW practice is emphatic that the two channels stay in separate
 > groups: average the five L into one trace, the five R into another, and never
 > put a left and a right capture in the same selection. The reason is that
@@ -1858,7 +1860,7 @@ assumes both divisors describe the same set of listening points.
 > other, and the target in step 5 is an average of the two *finished* channel
 > traces, not of ten mixed captures.
 >
-> `SUM-SP` is a **third trace**, not a merged channel. It is never used as a
+> `LR-SP` is a **third trace**, not a merged channel. It is never used as a
 > channel response, never equalised against `L-SP` or `R-SP`, and never
 > replaces either. It exists for one job: to be the divisor below 80 Hz.
 >
@@ -1894,14 +1896,14 @@ replaced by something that is *not* a pure all-pass (`Xo801`, which adds a
 bass-alignment term, is such a thing) the sub-step becomes load-bearing without
 warning.
 
-**And why `SUM-SP` is left alone.** The same all-pass is applied to both
+**And why `LR-SP` is left alone.** The same all-pass is applied to both
 channels, so it cancels out of their ratio: `(L·X + R·X)/2 = X·(L + R)/2`, and
-the magnitude of the sum is unchanged. Since `SUM-SP` is taken to minimum phase
+the magnitude of the sum is unchanged. Since `LR-SP` is taken to minimum phase
 in step 4, which discards phase anyway, multiplying it by `X801` would change
 nothing. Measured on the 2026-08-10 pair at 50 Hz: the vector average of `LX`
 and `RX` reads 67.603 dB, the vector average of the un-multiplied pair
 67.602 dB. If `X801` is ever replaced by something that is not magnitude-flat,
-build `SUM-SP` from `LX`/`RX`-scale traces instead.
+build `LR-SP` from `LX`/`RX`-scale traces instead.
 
 > ### ⚠ Never window X801
 > It is an all-pass whose energy is spread symmetrically over ±1365 ms by
@@ -1918,7 +1920,7 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 ### Step 4 — Minimum phase, first time
 
 **Do:** on `LX`, use **`Generate minimum phase`** and name the new measurement
-`LX-MP`. Likewise make `RX-MP` from `RX` and `SUM-MP` from `SUM-SP`.
+`LX-MP`. Likewise make `RX-MP` from `RX` and `LR-MP` from `LR-SP`.
 
 | dialog option | set to | why |
 |---|---|---|
@@ -1937,7 +1939,7 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 > |---|---|---|---|---|
 > | `LX` → `LX-MP` | **13.41** | 0.58 | 0.03 | 0.33 |
 > | `RX` → `RX-MP` | **8.88** | 0.53 | 0.03 | 0.04 |
-> | `SUM` → `SUM-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
+> | `LR` → `LR-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
 > | `FL` → `LFilter` | 0.21 | **2.41** | 0.30 | 0.13 |
 >
 > **The mechanism.** Minimum phase is obtained by a Hilbert transform of the
@@ -2260,7 +2262,7 @@ are placement and treatment, not the target — the same conclusion as §5's.)*
 
 > **6a. The minimum-phase copy must have preserved the magnitude.**
 > Export `LX` too, subtract, and require `|LX-MP| − |LX|` to sit at the
-> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `SUM-MP`.
+> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `LR-MP`.
 >
 > This is a property, not a tolerance: a minimum-phase copy changes phase and
 > nothing else, so any visible deviation is an artifact. If it fails, the LF
@@ -2325,7 +2327,7 @@ and then two operations per channel (7c, 7d). The reason is §11: below 80 Hz
 the two speakers cancel each other at the seat, and dividing by each channel
 separately deepens that cancellation.
 
-**7a — take the spatial sum built in step 3.** Use `SUM-MP`.
+**7a — take the spatial sum built in step 3.** Use `LR-MP`.
 
 > **Do not vector-average `LX` and `RX` here.** `L-SP` and `R-SP` are spatial
 > RMS averages: their position phase is already gone, so a vector average of
@@ -2339,7 +2341,7 @@ separately deepens that cancellation.
 | field | value |
 |---|---|
 | A | `Target L-R RMS average` |
-| B | **`SUM-MP`** |
+| B | **`LR-MP`** |
 | Lower / upper frequency limit | **20 Hz / 80 Hz** |
 | **`Max gain`** | **selected**, value **0.0 dB** |
 
@@ -2775,7 +2777,7 @@ at **step 9**, where it is baked into the shipped filter.
 
 | # | applied to | producing | why |
 |---|---|---|---|
-| **1** | `LX`, `RX`, `SUM-SP` | `LX-MP`, `RX-MP`, `SUM-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
+| **1** | `LX`, `RX`, `LR-SP` | `LX-MP`, `RX-MP`, `LR-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
 | **2** | `Fl`, `Fr` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
 | **✗** | `X801` | — | **never.** Its magnitude is 0.00000 dB, so its minimum-phase copy is a unit impulse — you would delete the filter entirely |
 
@@ -2800,7 +2802,7 @@ interchangeable.
 
 | operation | result | outside its frequency limits | guards it offers | use it? |
 |---|---|---|---|---|
-| **`A ÷ B`**, A = Target, B = `SUM-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| **`A ÷ B`**, A = Target, B = `LR-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 | **`A ÷ B`**, A = Target, B = `LX-MP` | Target ÷ one channel | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the per-channel filter**, **80**–225 Hz |
 | `A ÷ B`, A = Target, B = `LX-MP` | Target ÷ measurement | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | the older single-division form; deepens the 45–56 Hz mono cancellation |
 | `1/A` on `LX-MP` | flat at a chosen level | **unity**, blended over one octave | **`Max gain`**, target level, **exclude notches** | only if you want a flat target and no house curve |
