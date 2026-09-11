@@ -1302,7 +1302,7 @@ its full version; read that if a line here doesn't make sense yet.
    keeps the sum-only correction (§11) from ever reaching a per-channel
    trace, and the cut-only ceiling stops the inversion from boosting into a
    null it should instead be regularised away from (§8).
-   `Target ÷ LR-MP` limited **20–80 Hz** (or 25–80 if chasing the
+   `Target ÷ LR-SP-MP` limited **20–80 Hz** (or 25–80 if chasing the
    group-delay gate) → `Fcommon`. `Target ÷ LX-MP` / `RX-MP` limited
    80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `Fl` (and
    `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
@@ -2020,7 +2020,14 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 ### Step 4 — Minimum phase, first time
 
 **Do:** on `LX`, use **`Generate minimum phase`** and name the new measurement
-`LX-MP`. Likewise make `RX-MP` from `RX` and `LR-MP` from `LR-SP`.
+`LX-MP`. Likewise make `RX-MP` from `RX` and `LR-SP-MP` from `LR-SP`.
+
+*(Naming note: `LR-SP` keeps its `-SP` tag through this step — `LR-SP-MP`,
+not `LR-MP` — because it goes straight from spatial average to minimum
+phase with nothing in between. `L-SP`/`R-SP` don't carry `-SP` into `LX`/
+`RX` because they pass through 3e's `× X801` first, which is its own
+rename, not a dropped tag. Matches what both `../DRC-120.blue` and
+`../DRC-120.green` actually export.)*
 
 | dialog option | set to | why |
 |---|---|---|
@@ -2039,7 +2046,7 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 > |---|---|---|---|---|
 > | `LX` → `LX-MP` | **13.41** | 0.58 | 0.03 | 0.33 |
 > | `RX` → `RX-MP` | **8.88** | 0.53 | 0.03 | 0.04 |
-> | `LR` → `LR-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
+> | `LR` → `LR-SP-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
 > | `FL` → `LFilter` | 0.21 | **2.41** | 0.30 | 0.13 |
 >
 > **The mechanism.** Minimum phase is obtained by a Hilbert transform of the
@@ -2418,7 +2425,7 @@ are placement and treatment, not the target — the same conclusion as §5's.)*
 
 > **6a. The minimum-phase copy must have preserved the magnitude.**
 > Export `LX` too, subtract, and require `|LX-MP| − |LX|` to sit at the
-> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `LR-MP`.
+> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `LR-SP-MP`.
 >
 > This is a property, not a tolerance: a minimum-phase copy changes phase and
 > nothing else, so any visible deviation is an artifact. If it fails, the LF
@@ -2483,7 +2490,7 @@ and then two operations per channel (7c, 7d). The reason is §11: below 80 Hz
 the two speakers cancel each other at the seat, and dividing by each channel
 separately deepens that cancellation.
 
-**7a — take the spatial sum built in step 3.** Use `LR-MP`.
+**7a — take the spatial sum built in step 3.** Use `LR-SP-MP`.
 
 > **Do not vector-average `LX` and `RX` here.** `L-SP` and `R-SP` are spatial
 > RMS averages: their position phase is already gone, so a vector average of
@@ -2497,7 +2504,7 @@ separately deepens that cancellation.
 | field | value |
 |---|---|
 | A | `Target L-R RMS average` |
-| B | **`LR-MP`** |
+| B | **`LR-SP-MP`** |
 | Lower / upper frequency limit | **20 Hz / 80 Hz** |
 | **`Max gain`** | **selected**, value **0.0 dB** |
 
@@ -2933,7 +2940,7 @@ at **step 9**, where it is baked into the shipped filter.
 
 | # | applied to | producing | why |
 |---|---|---|---|
-| **1** | `LX`, `RX`, `LR-SP` | `LX-MP`, `RX-MP`, `LR-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
+| **1** | `LX`, `RX`, `LR-SP` | `LX-MP`, `RX-MP`, `LR-SP-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
 | **2** | `Fl`, `Fr` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
 | **✗** | `X801` | — | **never.** Its magnitude is 0.00000 dB, so its minimum-phase copy is a unit impulse — you would delete the filter entirely |
 
@@ -2958,7 +2965,7 @@ interchangeable.
 
 | operation | result | outside its frequency limits | guards it offers | use it? |
 |---|---|---|---|---|
-| **`A ÷ B`**, A = Target, B = `LR-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| **`A ÷ B`**, A = Target, B = `LR-SP-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 | **`A ÷ B`**, A = Target, B = `LX-MP` | Target ÷ one channel | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the per-channel filter**, **80**–225 Hz |
 | `A ÷ B`, A = Target, B = `LX-MP` | Target ÷ measurement | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | the older single-division form; deepens the 45–56 Hz mono cancellation |
 | `1/A` on `LX-MP` | flat at a chosen level | **unity**, blended over one octave | **`Max gain`**, target level, **exclude notches** | only if you want a flat target and no house curve |
