@@ -2209,8 +2209,31 @@ there to remove.
 #### The target's LF cutoff — move it to 5–10 Hz, below the correction band
 
 The target shape carries a **low-frequency cutoff**, and REW's default puts it
-at **20 Hz, 24 dB/oct** — right at the bottom edge of the match range. Move it
-to 5 or 10 Hz.
+at **20 Hz, 24 dB/oct** — right at the bottom edge of the match range. Move
+the **frequency** to 5 or 10 Hz. **Leave the slope at REW's default** — see
+below for why, unlike step 4, it isn't a choice worth making here at all.
+
+> ### Frequency is the only knob that matters — not slope, not "match the speaker"
+> It is tempting to import step 4's rule (match the physical roll-off) here.
+> Don't — it's the wrong mechanism entirely, for two independent reasons:
+>
+> 1. **The target isn't a measurement of anything.** It's a *want*, built by
+>    hand in the EQ window, not the response of a real loudspeaker. There is
+>    no physical roll-off for it to be faithful to.
+> 2. **The target is never minimum-phase-transformed.** Step 4's slope choice
+>    was load-bearing because `Generate minimum phase` is a *global* Hilbert
+>    transform: an unphysical magnitude assumption below the corner distorts
+>    the phase it computes everywhere, including inside the passband. The
+>    target has no such step — *"a target shape is magnitude only… only its
+>    magnitude survives step 8"* — it is used directly as operand A in a
+>    division restricted to the 20–225 Hz match range. There is no mechanism
+>    by which its slope could propagate anywhere.
+>
+> So the only thing that matters is **geometry**: get the corner far enough
+> below 20 Hz that its bend doesn't reach into the match range, which the
+> table below shows the *frequency* alone accomplishes. Once the corner sits
+> at 5–10 Hz, the transition is clear of 20 Hz regardless of how steep it is
+> — there is nothing left for a slope choice to do.
 
 **Does that corrupt the calculated target level, given the speakers produce
 nothing at 10 Hz?** No — and the reason is worth being clear about, because the
