@@ -1206,44 +1206,88 @@ Worked numbers come from `120.blue.txts/` (single position) and
 
 ---
 
-### TL;DR — the eleven steps, no explanation
+### TL;DR — the eleven steps, briefly
 
-For the impatient, or for a rebuild you've done before. Each step below links
-to its full version; read that if any line here doesn't make sense yet.
+For the impatient, or for a rebuild you've done before: what each step is
+*for*, in one to three lines, then the settings. Each step below links to
+its full version; read that if a line here doesn't make sense yet.
 
-1. **[Measure](#step-1--measure-the-five-positions).** Sweep each position,
-   start ≈ **12 Hz** (not 10 — woofer excursion), −12 dBFS (−18…−20 dBFS if
-   starting below ~15 Hz). One reference speaker per set.
+1. **[Measure](#step-1--measure-the-five-positions).** An acoustic timing
+   reference puts t = 0 at the impulse peak — required so the FDW (step 2)
+   centres correctly and so the position-wise L/R sum (step 3c) means
+   anything at all.
+   Sweep each position, start ≈ **12 Hz** (not 10 — woofer excursion),
+   −12 dBFS (−18…−20 dBFS if starting below ~15 Hz). One reference speaker
+   for every sweep of both channels.
 2. **[Window](#step-2--set-the-window-on-every-original-capture-before-averaging).**
-   Same IR window on every capture before any averaging — this is the one step
-   a later failure always traces back to.
+   The FDW is the regularisation that keeps the inversion from turning a
+   razor-thin, position-specific null into a Q-40 resonator (§5). It must be
+   applied before any averaging — window-then-average and average-then-window
+   are not the same operation, and there is no way back from getting the
+   order wrong.
+   Add FDW, **12 cycles**, `Apply to all, keep ref time`, on every original L
+   and R capture. Never on `X801`, never re-applied to a derived trace.
+   *(Beta: select traces in the All SPL legend, right-click the graph →
+   `RMS average` / `Vector average` / `Align SPL...`. Stable: these live in
+   separate Actions panels, not a right-click menu.)*
 3. **[Reduce to divisors](#step-3--reduce-the-captures-to-three-divisors).**
-   Spatial-average each channel and the position-by-position `L+R` sum into
-   `LX`, `RX`, `SUM-SP` (`SUM` = complex, not RMS).
+   The rest of the procedure needs exactly three traces: each channel's
+   spatial average (for the per-channel filter above 80 Hz) and the mono
+   sum's spatial average (for the common filter below 80 Hz, §11 — the two
+   speakers sum coherently down there, so only the sum may be corrected).
+   `RMS average` each channel's five positions → `L-SP`/`R-SP`. Form the
+   mono sum **per position** with `Vector average` first, *then* `RMS
+   average` the five sums → `SUM-SP`. Never `Vector average` across
+   positions.
 4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
+   Converts a magnitude-only divisor into a causal impulse response, so
+   dividing by it later doesn't ask REW to invent phase from nowhere.
    `LX`/`RX`/`SUM-SP` → `-MP` copies. LF tail **on**, corner at the sweep
-   start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave of
-   the correction band's low edge. HF tail off.
-5. **[Build the target](#step-5--build-the-target).** Load a house curve (no
-   scoop if the room already runs full — `house-curve-harman-fuller.txt`),
-   let REW set the level, export as the target trace.
-6. **[Stop and verify](#step-6--stop-and-verify).** Check the `-MP` copies
-   against their sources for narrow dips before dividing by them — a dip here
-   becomes a boost downstream.
-7. **[Divide](#step-7--the-division).** `Target ÷ SUM-MP` limited **20–80 Hz**
-   (or 25–80 if chasing the group-delay gate) → `Fcommon`. `Target ÷ LX-MP` /
-   `RX-MP` limited 80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L`
-   → `Fl` (and `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+   start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave
+   of the correction band's low edge. HF tail off.
+5. **[Build the target](#step-5--build-the-target).** What you want the room
+   to measure like — everything downstream is this divided by what it
+   actually measures.
+   Load a house curve (no scoop if the room already runs full —
+   `house-curve-harman-fuller.txt`), let REW set the level, export as the
+   target trace.
+6. **[Stop and verify](#step-6--stop-and-verify).** A narrow dip in an
+   `-MP` divisor becomes a narrow **boost** once you divide by it — the one
+   place a defect is cheaper to catch than to build and then discover.
+   Check each `-MP` copy against its source for narrow dips before dividing
+   by it.
+7. **[Divide](#step-7--the-division).** Target ÷ measurement *is* the
+   correction curve, by construction (§1). Splitting the divide at 80 Hz
+   keeps the sum-only correction (§11) from ever reaching a per-channel
+   trace, and the cut-only ceiling stops the inversion from boosting into a
+   null it should instead be regularised away from (§8).
+   `Target ÷ SUM-MP` limited **20–80 Hz** (or 25–80 if chasing the
+   group-delay gate) → `Fcommon`. `Target ÷ LX-MP` / `RX-MP` limited
+   80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `Fl` (and
+   `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+   *(Beta: `Max gain`, a dB ceiling. Stable: a `Regularisation`
+   **percentage** instead — a different control, not a unit conversion of
+   the same setting.)*
 8. **[Minimum phase, second time](#step-8--minimum-phase-second-time).**
+   Turns the raw `Fl`/`Fr` correction curve into a realisable causal filter
+   — the same reason as step 4, applied to the thing you're about to export
+   rather than to a divisor.
    `Fl`/`Fr` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
    unless you want a deliberate subsonic high-pass. Cal file effects **off**.
 9. **[Bake in the crossover](#step-9--bake-the-crossover-correction-in-last).**
+   `X801` corrects the one thing a minimum-phase inversion is provably blind
+   to — the crossover's all-pass phase (§3) — and it must go last because it
+   has nothing to interact with until the room-correction filter exists.
    `X801 × LFilter` → `FLX` (and `FRX`), X801 as trace A, last of all.
-10. **[Export](#step-10--export).** Trim to set latency (doesn't change the
-    response), export 48 kHz / 32-bit float WAV.
+10. **[Export](#step-10--export).** What BruteFIR actually loads; trimming
+    only sets latency and does not change the exported response.
+    Trim to set latency, export 48 kHz / 32-bit float WAV.
 11. **[Accept or reject](#step-11--accept-or-reject-before-deploying).**
+    The numeric form of "will the woofers keep moving after the music
+    stops?" (§4's Δf·Δt trade-off, made concrete) — the one check that
+    catches what a magnitude plot cannot show at all (R8's worked example).
     `drc_acceptance.py` on both channels. Fails → back to step 2, not a
-    post-process patch.
+    post-process patch on the WAV.
 
 ---
 
@@ -1656,6 +1700,48 @@ of the five. Then apply each result to both of that position's captures with
 **`SPL offset`** → **`Add to data`**. If that is more bookkeeping than you
 want, use `Align SPL` on each family separately and accept the 0.17 dB in the
 table above — it is what REW documents, and it needs nothing read back.
+
+**The `Align SPL...` dialog, field by field.** Two controls set the span the
+average is taken over, as a **centre frequency and a width in octaves**
+rather than a low/high pair:
+
+| field | set to | why |
+|---|---|---|
+| **Alignment center** | **1000 Hz** | geometric centre of 500 Hz–2 kHz |
+| **Alignment Span** | **2 octaves** | 500 Hz → 2 kHz — the same band this section's by-hand method already uses above |
+
+**Do not leave these at whatever the dialog opens with — set them
+explicitly, every time.** Two independent reasons:
+
+1. Centre-and-span is not how this document (or REW's own SPL/Phase graph
+   options) normally states a band, so it is easy to leave the field at
+   whatever REW last remembered rather than the band you actually mean.
+   1000 Hz is `√(500 × 2000)`, and 500 → 2000 Hz is
+   `log₂(2000/500) = 2` octaves — that derivation is what makes these two
+   numbers *equal* "500 Hz–2 kHz," not a coincidence to be re-verified by eye
+   each session.
+2. **500 Hz–2 kHz is not an arbitrary convenient band.** It is the same
+   region the caution in step 1 already singles out as the one where
+   microphone aiming matters and the capsule stops being effectively
+   omnidirectional — comfortably above this room's ≈166 Hz Schroeder
+   frequency, so the level differences it measures reflect distance, not
+   modal structure. A lower band risks folding room-mode peaks and dips
+   into what is meant to be a clean measure of "how far is this seat from
+   the pair," which is the exact confound Rule 2 and the L-vs-R-vs-both
+   comparison table above exist to keep out.
+
+   *(This project's own recollection of the factory-default centre/span —
+   not independently confirmed, and REW's published help documents the
+   feature's purpose but not its default field values — is 500 Hz, 2
+   octaves, i.e. 250 Hz–1 kHz. If that is right, the default band reaches
+   down toward the Schroeder region instead of sitting safely above it,
+   which is itself an argument for overriding it here rather than trusting
+   whatever the dialog opens with.)*
+
+Set explicitly, `Align SPL` measures the same band the rest of this sub-step
+reasons about, so the 0.17 dB figure in the table above is what you should
+actually see — not an approximation of it, and not dependent on what REW
+happened to default to on this install.
 
 > ### ⚠ Never equalise L against R
 > The tempting move is to select `L L20` and `R L20` together and align them,
