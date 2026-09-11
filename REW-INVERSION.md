@@ -1242,10 +1242,12 @@ its full version; read that if a line here doesn't make sense yet.
      samples: `Vector average` them down to one trace per channel per
      position *before* anything else sees them, or skip if you took one
      sweep each.
-   - **[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it)**,
-     optional at a 20 cm cluster — **skip it here**; do nothing rather than
-     `Align SPL`, per the table in that sub-step. Only earns its place once
-     positions span a metre or more.
+   - **[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it).**
+     **Do: nothing.** Do not run `Align SPL` — at a 20 cm cluster, the
+     table in that sub-step shows doing nothing beats every alignment
+     policy including `Align SPL` itself, so skip 3b's whole procedure and
+     go straight to 3c. (Align SPL only becomes the right call once
+     positions span a metre or more, which is not this project's cluster.)
    - **[3c](#3c--form-the-mono-sum-at-each-position).** The one place
      inter-channel phase is used. **Do:** for each of the five positions,
      select its `L` and `R` capture and choose **`Vector average`**. Name
