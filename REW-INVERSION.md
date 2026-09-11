@@ -2903,6 +2903,18 @@ measuring different things.
    none reaches past 24 kHz. These are the same checks the tool runs; this
    is catching them yourself first, with the file names in front of you
    rather than in a refusal message.
+
+   ```sh
+   ./drc_export_preflight.py ../DRC-120.green/120.green.multipt.txts
+   ```
+
+   Run it on the export directory. It mirrors `new_filter_design.py`'s own
+   file-role resolver — including the `LR`/`L+R` conflict check above —
+   and its unsmoothed/24 kHz checks, without needing SoX or a Git checkout
+   of `open-media-drc` to run. It does **not** replace the TXT↔WAV
+   residual check (that needs SoX + NumPy); a clean pass here still means
+   running `new_filter_design.py --dry-run` before deploying, not skipping
+   it.
 7. **Commit.** The export directory must be a Git work tree, and all ten
    files plus the `.mdat` must be committed — not merely staged — before
    deployment can read them back later. See `DEPLOYMENT.md` §4 for what
