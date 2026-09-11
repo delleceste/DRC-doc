@@ -2071,6 +2071,22 @@ build `LR-SP` from `LX`/`RX`-scale traces instead.
 > below it — the corner-distance discussion just below is that same
 > mechanism at work for a slope that's merely too steep, not wrong in kind.
 >
+> **Nor does the 24→12 dB/oct fallback license going further, down to
+> `0 dB/oct`, even to kill the group-delay bleed-through more completely.**
+> It would: a flat continuation induces no transition-related group delay
+> at all, so in isolation it beats 12 dB/oct on that one number. But 24 and
+> 12 dB/oct are both models of a real enclosure — a real box could
+> plausibly be either alignment — so choosing between them trades one
+> believable physical story for another, in a region cut-only clamps out of
+> the final filter regardless of which you pick. `0 dB/oct` isn't a
+> shallower version of that same trade: **no physical driver outputs flat
+> to DC**, so it stops being a model of the loudspeaker at all and becomes
+> a known-false assumption chosen because it makes a test number smaller —
+> the same mistake as §5's cautionary tale, from the opposite direction:
+> that one trusted an artifact because the numbers said so; this one would
+> substitute a fabrication for missing data for the same reason. **Stop at
+> 12 dB/oct.**
+>
 > **The corner's distance from the band edge is a group-delay budget, not just
 > a splice-quality one.** A 24 dB/oct tail is a 4th-order high-pass; its group
 > delay peaks just above the corner and is still large half an octave up. REW
