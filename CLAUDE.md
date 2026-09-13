@@ -51,6 +51,18 @@ self-contained study may live here when its filename identifies the geometry,
 it keeps the measurements in their geometry repository, and its scripts read
 them through an explicit cross-repository path.
 
+## Claude skill
+
+`.claude/skills/rew-inversion-audit/SKILL.md` — audits REW inversion-method
+exports (the `<geometry>.multipt.txts/` trees) and `drc_acceptance.py`
+output against this repo's own procedure (`REW-INVERSION.md`'s 11 steps and
+`R1`–`R11`), knows the open-media-drc/BruteFIR/MPD/virtual_oss/alsa
+ecosystem, and carries remediation guidance (e.g. when reducing FDW cycles
+actually helps vs. when it doesn't — §8/R10). Triggers automatically on
+requests like "analyze the txt measurements under `<geometry>.multipt.txts`"
+or "why did the acceptance test fail", or invoke directly with
+`/rew-inversion-audit`.
+
 ## Building the PDFs
 
 ```sh
