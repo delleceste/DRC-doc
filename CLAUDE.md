@@ -51,6 +51,18 @@ self-contained study may live here when its filename identifies the geometry,
 it keeps the measurements in their geometry repository, and its scripts read
 them through an explicit cross-repository path.
 
+## Claude skill
+
+`.claude/skills/rew-inversion-audit/SKILL.md` — audits REW inversion-method
+exports (the `<geometry>.multipt.txts/` trees) and `drc_acceptance.py`
+output against this repo's own procedure (`REW-INVERSION.md`'s 11 steps and
+`R1`–`R11`), knows the open-media-drc/BruteFIR/MPD/virtual_oss/alsa
+ecosystem, and carries remediation guidance (e.g. when reducing FDW cycles
+actually helps vs. when it doesn't — §8/R10). Triggers automatically on
+requests like "analyze the txt measurements under `<geometry>.multipt.txts`"
+or "why did the acceptance test fail", or invoke directly with
+`/rew-inversion-audit`.
+
 ## Building the PDFs
 
 ```sh
@@ -82,12 +94,36 @@ python3 drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav
 
 Three tests: sharpest feature (**Q ≤ 12**, not FFT bins — bin spacing is
 `fs/n`, so a bin threshold depends on file length), group-delay excursion
-(10 ms, 20–200 Hz), and gated-tone tails (median over nine tone lengths; a
-single length is not reproducible). `X801.wav` passes all three and is the
-known-good control.
+(10 ms, 20–200 Hz), and gated-tone tails (median over nine gate phases; a
+single phase is not reproducible). `X801.wav` passes all three and is the
+known-good control. `python3 -m unittest test_drc_acceptance` covers the
+estimator.
 
 The thresholds are a **build-quality gate, not a verdict on audibility**. R8 of
 the guide carries the audibility figures separately.
+
+### The tail estimator was rewritten on 2026-09-13 — revision 1 under-reported
+
+Revision 1 reported the **first** −40 dB crossing, so a rebound afterwards did
+not count; it `np.roll`ed the impulse before a **linear** convolution, which
+could move late ringing in front of the main peak and out of the measurement;
+its observation window silently shrank by the filter's own latency; and it
+dropped never-settled trials from the median. **Do not compare a tail printed
+before that date with one printed after** — the two are different quantities,
+and the old one is the smaller.
+
+The estimator is anchored at both ends: it reproduces the Sept 2025 filter at
+**1349 ms** against the **1348 ms** on record, and measures `X801.wav` at the
+analysis floor exactly, at every tone.
+
+Each tail is judged as **control + 100 ms**, never a multiple of the control.
+The estimator has a floor of its own — a pure delay, which rings not at all,
+still measures 132 ms at 28.7 Hz and 5 ms at 180 Hz — and that floor is the
+noisiest quantity in the test: at 79 Hz its nine gate phases span 2–54 ms while
+the filter's span 105–125. The old `3 × control` rule tracked that noise
+straight into the verdict, passing or failing the same filter on a change of
+gate ramp. Read the **`excess`** column: it is the quantity actually judged,
+and a filter that adds no ringing of its own scores 0.
 
 ### Two sharpness rules that look contradictory and are not
 

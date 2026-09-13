@@ -76,6 +76,15 @@ current one:
   - [R9. Does the source correlation invalidate §11?](#r9-does-the-source-correlation-invalidate-11)
   - [R10. Troubleshooting](#r10-troubleshooting)
   - [R11. Glossary](#r11-glossary)
+- [Part V — Automating the procedure](#part-v--automating-the-procedure)
+  - [13. What it does, and does not, do for you](#13-what-it-does-and-does-not-do-for-you)
+  - [14. Input measurements, and the config file](#14-input-measurements-and-the-config-file)
+  - [15. Steps 2–10, one API call each](#15-steps-210-one-api-call-each)
+  - [16. Building the target](#16-building-the-target)
+  - [17. Output files](#17-output-files)
+  - [18. Rebuilding at a different FDW, or after a tweak](#18-rebuilding-at-a-different-fdw-or-after-a-tweak)
+  - [19. Quirks the API did not document](#19-quirks-the-api-did-not-document)
+  - [R12. Appendix — how the REW API was explored](#r12-appendix--how-the-rew-api-was-explored)
 
 ---
 
@@ -942,7 +951,7 @@ ITU), chosen for the same reason: localisation cues are weak below it.
 ### Building it: two divisions, spliced at 80 Hz
 
 ```
-FL  =  [ Target ÷ SUM ]   ×   [ Target ÷ LX ]
+FL  =  [ Target ÷ LR ]   ×   [ Target ÷ LX ]
         limited 20–80 Hz      limited 80–225 Hz
 ```
 
@@ -952,9 +961,9 @@ limits each reverts to unity, so only one is ever doing work:
 
 | | below 80 Hz | above 80 Hz |
 |---|---|---|
-| `Target ÷ SUM`, limited 20–80 | active | **unity** |
+| `Target ÷ LR`, limited 20–80 | active | **unity** |
 | `Target ÷ LX`, limited 80–225 | **unity** | active |
-| **product** | **Target ÷ SUM** — common | **Target ÷ LX** — per channel |
+| **product** | **Target ÷ LR** — common | **Target ÷ LX** — per channel |
 
 The splice is seamless because REW's two band-limit ramps are
 **complementary**: the roll-off at the upper limit of the first is exactly one
@@ -962,7 +971,7 @@ minus the rise at the lower limit of the second, each a raised cosine over one
 octave. So in decibels the product is
 
 ```
-FL(dB)  =  w·(Target − SUM)  +  (1 − w)·(Target − LX),     w: 1 → 0 over 57–113 Hz
+FL(dB)  =  w·(Target − LR)  +  (1 − w)·(Target − LX),     w: 1 → 0 over 57–113 Hz
 ```
 
 — a clean crossfade from the common correction to the per-channel one. Nothing
@@ -976,16 +985,16 @@ steps, and at no frequency is any correction applied twice.
 
 > ### The equivalent form, and why it is the worse way to build it
 > The same filter can be written as a common correction times a *differential*
-> one, `(Target ÷ SUM) × (SUM ÷ LX)`, with the first factor spanning the full
-> 20–225 Hz and the second limited to 80–225. `SUM` then cancels algebraically
+> one, `(Target ÷ LR) × (LR ÷ LX)`, with the first factor spanning the full
+> 20–225 Hz and the second limited to 80–225. `LR` then cancels algebraically
 > above 80 Hz and the result is the same filter — measured on the 2026-08-11
 > data, the two agree to **0.088 dB rms and 0.425 dB maximum** over 20–225 Hz.
 >
-> Prefer the spliced form anyway. `SUM ÷ LX` is a ratio of two *measurements*,
+> Prefer the spliced form anyway. `LR ÷ LX` is a ratio of two *measurements*,
 > so it genuinely needs to boost wherever a channel sits below the sum, and
 > clamping it breaks the algebra:
 >
-> | | `(T÷SUM) × (SUM÷LX)` | **`(T÷SUM) × (T÷LX)`** |
+> | | `(T÷LR) × (LR÷LX)` | **`(T÷LR) × (T÷LX)`** |
 > |---|---|---|
 > | boost the second factor wants | **+6.59 dB** | +0.22 dB |
 > | `Max gain` value it must be given | **+6.0 dB** | **0.0 dB** |
@@ -1190,9 +1199,12 @@ be worth chasing, and localisation does depend on it.
 
 ![The REW inversion chain](fig-chain.png)
 
-Eleven steps (the diagram folds 10 and 11 into one box). Steps 1 to 3 turn ten
-sweeps into the three traces everything else divides by; steps 4 to 11 are the
-same whether you measured one position or five.
+Eleven steps build and accept the filter (the diagram folds 10 and 11 into one
+box). Steps 1 to 3 turn ten sweeps into the three traces everything else
+divides by; steps 4 to 11 are the same whether you measured one position or
+five. A twelfth, [step 12](#step-12--prepare-the-export-bundle-for-open-media-drc),
+follows once step 11 accepts: preparing the export directory
+`DEPLOYMENT.md` and open-media-drc's installer both expect.
 
 **Where the actions live.** In V5.40 beta, select the traces you want in the
 **All SPL** legend, then right-click the graph: `Align SPL...`,
@@ -1206,44 +1218,140 @@ Worked numbers come from `120.blue.txts/` (single position) and
 
 ---
 
-### TL;DR — the eleven steps, no explanation
+### TL;DR — the eleven steps, briefly
 
-For the impatient, or for a rebuild you've done before. Each step below links
-to its full version; read that if any line here doesn't make sense yet.
+For the impatient, or for a rebuild you've done before: what each step is
+*for*, in one to three lines, then the settings. Each step below links to
+its full version; read that if a line here doesn't make sense yet.
 
-1. **[Measure](#step-1--measure-the-five-positions).** Sweep each position,
-   start ≈ **12 Hz** (not 10 — woofer excursion), −12 dBFS (−18…−20 dBFS if
-   starting below ~15 Hz). One reference speaker per set.
+1. **[Measure](#step-1--measure-the-five-positions).** An acoustic timing
+   reference puts t = 0 at the impulse peak — required so the FDW (step 2)
+   centres correctly and so the position-wise L/R sum (step 3c) means
+   anything at all.
+   Sweep each position, start ≈ **12 Hz** (not 10 — woofer excursion),
+   −12 dBFS (−18…−20 dBFS if starting below ~15 Hz). One reference speaker
+   for every sweep of both channels.
 2. **[Window](#step-2--set-the-window-on-every-original-capture-before-averaging).**
-   Same IR window on every capture before any averaging — this is the one step
-   a later failure always traces back to.
+   The FDW is the regularisation that keeps the inversion from turning a
+   razor-thin, position-specific null into a Q-40 resonator (§5). It must be
+   applied before any averaging — window-then-average and average-then-window
+   are not the same operation, and there is no way back from getting the
+   order wrong.
+   Add FDW, **12 cycles**, `Apply to all, keep ref time`, on every original L
+   and R capture. Never on `X801`, never re-applied to a derived trace.
+   *(Beta: select traces in the All SPL legend, right-click the graph →
+   `RMS average` / `Vector average` / `Align SPL...`. Stable: these live in
+   separate Actions panels, not a right-click menu.)*
 3. **[Reduce to divisors](#step-3--reduce-the-captures-to-three-divisors).**
-   Spatial-average each channel and the position-by-position `L+R` sum into
-   `LX`, `RX`, `SUM-SP` (`SUM` = complex, not RMS).
+   The rest of the procedure needs exactly three traces: each channel's
+   spatial average (for the per-channel filter above 80 Hz) and the mono
+   sum's spatial average (for the common filter below 80 Hz, §11 — the two
+   speakers sum coherently down there, so only the sum may be corrected).
+   Five sub-steps, in order — arithmetic is a snapshot, so redoing an
+   earlier one means redoing everything after it.
+   - **[3a](#3a--collapse-any-repeat-sweeps-optional)**, optional. Repeat
+     captures at one position are a repeatability check, not extra spatial
+     samples: `Vector average` them down to one trace per channel per
+     position *before* anything else sees them, or skip if you took one
+     sweep each.
+   - **[3b](#3b--level-alignment-what-it-is-for-and-when-to-skip-it).**
+     **Do: nothing.** Do not run `Align SPL` — at a 20 cm cluster, the
+     table in that sub-step shows doing nothing beats every alignment
+     policy including `Align SPL` itself, so skip 3b's whole procedure and
+     go straight to 3c. (Align SPL only becomes the right call once
+     positions span a metre or more, which is not this project's cluster.)
+   - **[3c](#3c--form-the-mono-sum-at-each-position).** The one place
+     inter-channel phase is used. **Do:** for each of the five positions,
+     select its `L` and `R` capture and choose **`Vector average`**. Name
+     the results `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20`.
+   - **[3d](#3d--average-across-positions--three-rms-averages).** Now
+     discard spatial phase. `RMS average` each channel's five positions →
+     `L-SP`/`R-SP`; `RMS average` the five `LR` traces → `LR-SP`. Never
+     `Vector average` across positions — it manufactures new nulls.
+     *(`-SP` = **sp**atial average — it names the dimension being averaged
+     over, the five mic **positions**, not what survives the average. That
+     it's an RMS (magnitude-only) average is a separate fact, stated by
+     "discard spatial phase" above: `-SP` flags "already averaged across
+     positions," distinct from a plain `L`/`R`/`LR`, which is one position
+     and — for `LR` specifically — still carries the phase 3c built it
+     with.)*
+   - **[3e](#3e--bake-the-crossover-correction-into-the-channel-averages).**
+     Import `X801.wav` (confirm it wasn't already loaded before step 2's
+     `Apply to all`; offset **−117 dB** → `Add to data` so it reads 0 dB,
+     not the ≈+117 dB REW's import gives it with no calibration reference
+     to work from). Then `LX` = `L-SP × X801`, `RX` = `R-SP × X801` — the
+     system as it will actually play, crossover included, before inversion.
 4. **[Minimum phase, first time](#step-4--minimum-phase-first-time).**
-   `LX`/`RX`/`SUM-SP` → `-MP` copies. LF tail **on**, corner at the sweep
-   start; slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave of
-   the correction band's low edge. HF tail off.
-5. **[Build the target](#step-5--build-the-target).** Load a house curve (no
-   scoop if the room already runs full — `house-curve-harman-fuller.txt`),
-   let REW set the level, export as the target trace.
-6. **[Stop and verify](#step-6--stop-and-verify).** Check the `-MP` copies
-   against their sources for narrow dips before dividing by them — a dip here
-   becomes a boost downstream.
-7. **[Divide](#step-7--the-division).** `Target ÷ SUM-MP` limited **20–80 Hz**
-   (or 25–80 if chasing the group-delay gate) → `Fcommon`. `Target ÷ LX-MP` /
-   `RX-MP` limited 80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L`
-   → `Fl` (and `Fr`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+   Converts a magnitude-only divisor into a causal impulse response, so
+   dividing by it later doesn't ask REW to invent phase from nowhere.
+   `LX`/`RX`/`LR-SP` → `-MP` copies. **Cal file effects included** — this
+   is modelling the acoustic response as measured, and the mic calibration
+   is part of what that means (contrast step 8, where it's excluded: a
+   filter has no microphone). LF tail **on**, corner at the sweep start;
+   slope 24 dB/oct (ported) or 12 if the corner sits within ½ octave of the
+   correction band's low edge — never 0 dB/oct, that's step 8's move, not
+   this one. HF tail off.
+5. **[Build the target](#step-5--build-the-target).** What you want the room
+   to measure like — everything downstream is this divided by what it
+   actually measures. A common target, not each channel's own smoothed
+   response, so correction doesn't pull the stereo image.
+   `RMS average` `LX`/`RX` → `L-R RMS average`. Open it in the **EQ
+   window**; load a house curve there if you want one (no scoop if the
+   room already runs full — `house-curve-harman-fuller.txt`). Press
+   **`Calculate`** to set the target level from that response — REW
+   anchors it to the speaker's midrange, which is the number to check it
+   against, not the neighbouring bass. Move the target's LF cutoff to
+   5–10 Hz, below the correction band. Save the shape: this **generates a
+   new measurement**, `Target L-R RMS average`, which is what step 7
+   divides by — magnitude only, no phase to speak of.
+6. **[Stop and verify](#step-6--stop-and-verify).** A narrow dip in an
+   `-MP` divisor becomes a narrow **boost** once you divide by it — the one
+   place a defect is cheaper to catch than to build and then discover.
+   Check each `-MP` copy against its source for narrow dips before dividing
+   by it.
+7. **[Divide](#step-7--the-division).** Target ÷ measurement *is* the
+   correction curve, by construction (§1). Splitting the divide at 80 Hz
+   keeps the sum-only correction (§11) from ever reaching a per-channel
+   trace, and the cut-only ceiling stops the inversion from boosting into a
+   null it should instead be regularised away from (§8).
+   `Target ÷ LR-SP-MP` limited **20–80 Hz** (or 25–80 if chasing the
+   group-delay gate) → `Fcommon`. `Target ÷ LX-MP` / `RX-MP` limited
+   80–225 Hz → `Fper_L`/`Fper_R`. Multiply: `Fcommon × Fper_L` → `FL` (and
+   `FR`). `Max gain` **on, 0.0 dB** throughout — cut-only.
+   *(Beta: `Max gain`, a dB ceiling. Stable: a `Regularisation`
+   **percentage** instead — a different control, not a unit conversion of
+   the same setting.)*
 8. **[Minimum phase, second time](#step-8--minimum-phase-second-time).**
-   `Fl`/`Fr` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
-   unless you want a deliberate subsonic high-pass. Cal file effects **off**.
+   Turns the raw `FL`/`FR` correction curve into a realisable causal filter
+   — the same reason as step 4, applied to the thing you're about to export
+   rather than to a divisor.
+   `FL`/`FR` → `LFilter`/`RFilter`. LF tail on; slope shallowest offered
+   (beta goes to `0 dB/oct` — flat, no imposed roll-off) unless you want a
+   deliberate subsonic high-pass. Cal file effects **off**.
 9. **[Bake in the crossover](#step-9--bake-the-crossover-correction-in-last).**
+   `X801` corrects the one thing a minimum-phase inversion is provably blind
+   to — the crossover's all-pass phase (§3) — and it must go last because it
+   has nothing to interact with until the room-correction filter exists.
    `X801 × LFilter` → `FLX` (and `FRX`), X801 as trace A, last of all.
-10. **[Export](#step-10--export).** Trim to set latency (doesn't change the
-    response), export 48 kHz / 32-bit float WAV.
+10. **[Export](#step-10--export).** What BruteFIR actually loads; trimming
+    only sets latency and does not change the exported response.
+    Trim to set latency, export 48 kHz / 32-bit float WAV.
 11. **[Accept or reject](#step-11--accept-or-reject-before-deploying).**
+    The numeric form of "will the woofers keep moving after the music
+    stops?" (§4's Δf·Δt trade-off, made concrete) — the one check that
+    catches what a magnitude plot cannot show at all (R8's worked example).
     `drc_acceptance.py` on both channels. Fails → back to step 2, not a
-    post-process patch.
+    post-process patch on the WAV.
+12. **[Prepare the export bundle](#step-12--prepare-the-export-bundle-for-open-media-drc).**
+    Ten files, condensed from `DEPLOYMENT.md`. The one to get right: `L`/`R`
+    still carry step 2's FDW at this point — `L.txt`/`R.txt`/`LR.txt` must
+    instead come from **unwindowed duplicates** (untick FDW, re-export),
+    because open-media-drc's own automated check only catches REW's
+    `Smoothing` setting, not FDW, and would accept a windowed export
+    silently. Set `Smoothing: None` on every export. Build
+    `L.Filtered`/`R.Filtered`/`LR.Filtered` by multiplying those same
+    unwindowed duplicates by the imported `FLX-trimmed`/`FRX-trimmed`
+    (checking the import level, as step 9 did for `X801`).
 
 ---
 
@@ -1359,6 +1467,18 @@ Then press **`Apply to all, keep ref time`**. Apply it to every original L and
 R capture and to any measured L+R capture. Never apply it to `X801`, and do
 not put it back on a derived average.
 
+> ### ⚠ `X801` must not be in the measurement list yet
+> `Apply to all` means all — every measurement currently loaded, with no way
+> to exclude one from the selection. `X801` is not imported until
+> [3e](#3e--bake-the-crossover-correction-into-the-channel-averages), several
+> sub-steps later, precisely so this button cannot reach it. If you are
+> re-running this step on a session where `X801` was imported early — for
+> reference, or left over from a previous build — remove it from the
+> measurement list (or at least deselect it) before pressing `Apply to all`,
+> then re-import it fresh at 3e. Windowing `X801` is not a small error: see
+> "Never window `X801`" below step 3e for what an FDW does to an all-pass
+> designed to be unwindowed.
+
 > ### ⚠ The order is load-bearing: window first, average second
 > The tempting alternative is to average the raw captures and apply the FDW to
 > `L-SP` and `R-SP` afterwards. It is not available, and it would be wrong if
@@ -1462,7 +1582,7 @@ You have ten windowed captures. The rest of the procedure needs exactly
 |---|---|---|
 | `L-SP` | the left channel, averaged over the five positions | the target, and the per-channel filter above 80 Hz |
 | `R-SP` | the right channel, same | the target, and the per-channel filter above 80 Hz |
-| `SUM-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| `LR-SP` | the **mono sum**, averaged over the five positions | the common filter below 80 Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 
 #### The word "family"
 
@@ -1472,7 +1592,7 @@ Used throughout this step, and it means exactly one of three sets:
 |---|---|
 | **L family** | `L C`, `L F20`, `L B20`, `L L20`, `L R20` — the left speaker measured at the five positions |
 | **R family** | `R C`, `R F20`, `R B20`, `R L20`, `R R20` — the right speaker at the same five |
-| **SUM family** | `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` — built in 3c, one per position |
+| **LR family** | `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20` — built in 3c, one per position |
 
 A family is a set of five *positions*, always one channel or one sum — never
 a mixture of L and R. Each family gets averaged into exactly one spatial
@@ -1657,6 +1777,40 @@ of the five. Then apply each result to both of that position's captures with
 want, use `Align SPL` on each family separately and accept the 0.17 dB in the
 table above — it is what REW documents, and it needs nothing read back.
 
+> **Remember what this whole sub-step is worth here first.** For a 20 cm
+> cluster the table above already showed **doing nothing** (0.01 dB rms,
+> 0.04 dB max) beats every alignment policy, including `Align SPL` itself
+> (0.09 dB rms, 0.17 dB max) — aligning is not fundamental to this
+> procedure, it only earns its place once the cluster spans a metre or
+> more. Everything below is for that wider-cluster case, or for whoever
+> reaches for `Align SPL` anyway; if you already decided to skip this
+> sub-step, skip this too and go to
+> [3c](#3c--form-the-mono-sum-at-each-position).
+
+**If you do use it, the `Align SPL...` dialog's two fields are worth
+setting rather than leaving alone**, since it is already the less accurate
+of the two "do align" options in the table above and there is no reason to
+add band mismatch on top:
+
+| field | set to | why |
+|---|---|---|
+| **Alignment center** | **1000 Hz** | geometric centre of 500 Hz–2 kHz |
+| **Alignment Span** | **2 octaves** | 500 Hz → 2 kHz — the same band this section's by-hand method already uses above |
+
+500 Hz–2 kHz is the same region the caution in step 1 already singles out
+as the one where microphone aiming matters and the capsule stops being
+effectively omnidirectional — comfortably above this room's ≈166 Hz
+Schroeder frequency, so the level differences it measures reflect distance,
+not modal structure. (1000 Hz is `√(500 × 2000)`; 500 → 2000 Hz is
+`log₂(2000/500) = 2` octaves.)
+
+*(This project's own recollection of the factory-default centre/span — not
+independently confirmed, and REW's published help documents the feature's
+purpose but not its default field values — is 500 Hz, 2 octaves, i.e.
+250 Hz–1 kHz: closer to the Schroeder region than the band above. Worth
+checking on a clean install if it matters to you; it does not change the
+conclusion that this whole sub-step is optional at this cluster size.)*
+
 > ### ⚠ Never equalise L against R
 > The tempting move is to select `L L20` and `R L20` together and align them,
 > so that at the 20 cm-left position the left trace comes down and the right
@@ -1689,8 +1843,8 @@ This is the step Rule 1 exists for, and the only place inter-channel phase is
 ever used.
 
 **Do:** for each of the five positions, select its `L` and `R` capture and
-choose **`Vector average`**. Name the results `SUM C`, `SUM F20`, `SUM B20`,
-`SUM L20`, `SUM R20`.
+choose **`Vector average`**. Name the results `LR C`, `LR F20`, `LR B20`,
+`LR L20`, `LR R20`.
 
 **Use `Vector average`, not `Vector sum`:**
 
@@ -1708,7 +1862,7 @@ A physical L+R sweep is `L + R`, so it sits **6.0206 dB above** REW's
 1. make a response copy, so the raw capture stays untouched;
 2. right-click the **SPL & Phase** graph → **`SPL offset`** → **−6.0206 dB** →
    **`Add to data`**;
-3. name it `SUM C` and use it in place of the calculated one. Keep the
+3. name it `LR C` and use it in place of the calculated one. Keep the
    calculated version alongside as a check.
 
 > ### The 6.0206 dB is exact, and it has been verified twice
@@ -1742,7 +1896,7 @@ right-click the graph and choose **`RMS average`**.
 |---|---|
 | `L C`, `L F20`, `L B20`, `L L20`, `L R20` | **`L-SP`** |
 | `R C`, `R F20`, `R B20`, `R L20`, `R R20` | **`R-SP`** |
-| `SUM C`, `SUM F20`, `SUM B20`, `SUM L20`, `SUM R20` | **`SUM-SP`** |
+| `LR C`, `LR F20`, `LR B20`, `LR L20`, `LR R20` | **`LR-SP`** |
 
 No further alignment here. If you applied position offsets in 3b the sums
 already carry them, and a family is never aligned a second time.
@@ -1766,7 +1920,7 @@ which it deliberately refuses to correct.
 five-position channel average against a four-position sum — the 80 Hz splice
 assumes both divisors describe the same set of listening points.
 
-> ### "Never average L with R" — and why `SUM-SP` is not a violation of it
+> ### "Never average L with R" — and why `LR-SP` is not a violation of it
 > Standard REW practice is emphatic that the two channels stay in separate
 > groups: average the five L into one trace, the five R into another, and never
 > put a left and a right capture in the same selection. The reason is that
@@ -1779,7 +1933,7 @@ assumes both divisors describe the same set of listening points.
 > other, and the target in step 5 is an average of the two *finished* channel
 > traces, not of ten mixed captures.
 >
-> `SUM-SP` is a **third trace**, not a merged channel. It is never used as a
+> `LR-SP` is a **third trace**, not a merged channel. It is never used as a
 > channel response, never equalised against `L-SP` or `R-SP`, and never
 > replaces either. It exists for one job: to be the divisor below 80 Hz.
 >
@@ -1799,8 +1953,17 @@ assumes both divisors describe the same set of listening points.
 
 1. `File → Import → Impulse Response` → `X801.wav`. Name it `X801 (revised)`.
    **Leave every window control on it alone** — see the warning below.
-2. Trace Arithmetic: `LX` = **A × B**, A = `L-SP`, B = `X801 (revised)`.
-3. Likewise `RX` = `R-SP` × `X801 (revised)`.
+2. **Check its level, and correct it if needed.** REW's impulse-response
+   import has no calibration reference for a filter WAV, so it computes an
+   SPL from the raw sample values rather than reporting the 0 dB an all-pass
+   actually is — on this file, that reads as **≈ +117 dB**. Right-click the
+   SPL & Phase graph → **`SPL offset`** → **−117 dB** → **`Add to data`**
+   until the trace sits at 0 dB. Skip this and every trace built from
+   `X801 (revised)` — `LX`, `RX`, and everything downstream through `FLX`/
+   `FRX` — inherits the same +117 dB, which the cut-only `Max gain` clamp in
+   step 7 will then fight rather than the real correction curve.
+3. Trace Arithmetic: `LX` = **A × B**, A = `L-SP`, B = `X801 (revised)`.
+4. Likewise `RX` = `R-SP` × `X801 (revised)`.
 
 **Why:** you are going to invert the system *as it will actually play*, and it
 will play through the crossover correction. Everything you then look at on
@@ -1815,14 +1978,54 @@ replaced by something that is *not* a pure all-pass (`Xo801`, which adds a
 bass-alignment term, is such a thing) the sub-step becomes load-bearing without
 warning.
 
-**And why `SUM-SP` is left alone.** The same all-pass is applied to both
+> ### ⚠ Multiply, *then* take minimum phase — never the other order
+> "Identical" above is not a coincidence of this particular file; it follows
+> from what `Generate minimum phase` actually computes. Minimum phase is the
+> Hilbert transform of **log-magnitude**, and the transform is linear:
+> ```
+> minphase(L-SP × X801) = Hilbert(log|L-SP| + log|X801|)
+>                        = Hilbert(log|L-SP| + 0)          since |X801| = 1
+>                        = Hilbert(log|L-SP|) = minphase(L-SP)
+> ```
+> `X801`'s magnitude contributes exactly nothing to the Hilbert transform, so
+> **as long as minimum-phase generation is the *last* operation**, it does not
+> matter whether you multiply by `X801` before or after — both routes land on
+> `minphase(L-SP)`, with none of `X801`'s actual phase `θ_X` in it. That is
+> the mathematical content of "`LX-MP` and `L-MP` are identical."
+>
+> **Reversing the order — minimum phase first, multiply last — is not the
+> same operation, and it is wrong.** `L-MP` already has its phase fixed at
+> `Hilbert(log|L-SP|)`. Multiplying it by `X801` afterward *adds* `X801`'s
+> real, physical rotation `θ_X` on top:
+> ```
+> L-MP × X801:  magnitude |L-SP| × 1 = |L-SP|          (same as above)
+>               phase     Hilbert(log|L-SP|) + θ_X       ← X801's real phase, now present
+> ```
+> That result is **not minimum phase** — `θ_X` is exactly the excess phase
+> §2 defines a crossover all-pass to be, and a minimum-phase trace by
+> definition carries none. Use it as the step 7 divisor and the division
+> stops being the safe, magnitude-only inversion steps 4 and 8 exist to
+> guarantee: R4's own table is explicit that dividing by a non-`-MP` trace
+> "inverts magnitude **and** … excess phase" — acausal, pre-ringing. The
+> filter would then try to *invert* the crossover rotation it is about to
+> receive cleanly and separately at step 9, defeating the orthogonality that
+> section relies on (`LFilter` contributing "exactly nothing to crossover
+> phase").
+>
+> **The rule, stated once:** minimum-phase generation must be the last thing
+> that happens to a trace before it is used as a divisor. Multiplying by a
+> flat-magnitude trace before that point is free — §above shows why — but
+> multiplying afterward is not a stylistic variant, it is a different, and
+> broken, result.
+
+**And why `LR-SP` is left alone.** The same all-pass is applied to both
 channels, so it cancels out of their ratio: `(L·X + R·X)/2 = X·(L + R)/2`, and
-the magnitude of the sum is unchanged. Since `SUM-SP` is taken to minimum phase
+the magnitude of the sum is unchanged. Since `LR-SP` is taken to minimum phase
 in step 4, which discards phase anyway, multiplying it by `X801` would change
 nothing. Measured on the 2026-08-10 pair at 50 Hz: the vector average of `LX`
 and `RX` reads 67.603 dB, the vector average of the un-multiplied pair
 67.602 dB. If `X801` is ever replaced by something that is not magnitude-flat,
-build `SUM-SP` from `LX`/`RX`-scale traces instead.
+build `LR-SP` from `LX`/`RX`-scale traces instead.
 
 > ### ⚠ Never window X801
 > It is an all-pass whose energy is spread symmetrically over ±1365 ms by
@@ -1839,13 +2042,20 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 ### Step 4 — Minimum phase, first time
 
 **Do:** on `LX`, use **`Generate minimum phase`** and name the new measurement
-`LX-MP`. Likewise make `RX-MP` from `RX` and `SUM-MP` from `SUM-SP`.
+`LX-MP`. Likewise make `RX-MP` from `RX` and `LR-SP-MP` from `LR-SP`.
+
+*(Naming note: `LR-SP` keeps its `-SP` tag through this step — `LR-SP-MP`,
+not `LR-MP` — because it goes straight from spatial average to minimum
+phase with nothing in between. `L-SP`/`R-SP` don't carry `-SP` into `LX`/
+`RX` because they pass through 3e's `× X801` first, which is its own
+rename, not a dropped tag. Matches what both `../DRC-120.blue` and
+`../DRC-120.green` actually export.)*
 
 | dialog option | set to | why |
 |---|---|---|
 | Cal file effects | **included** | you are modelling the acoustic response as measured, and the mic calibration is part of what the measurement means |
 | **LF tail** | **yes**, at or just below the first measured bin: **16 Hz for the 2026-08-17 set**, 15 Hz for the older set | **required** — without it the minimum-phase transform corrupts the magnitude it is supposed to preserve. See the callout below |
-| Slope | **24 dB/oct** for a ported box (12 for sealed) — but **12 dB/oct regardless of enclosure** if the corner lands within ~½ octave of the correction band's low edge | matches the speaker's physical roll-off; halves the group delay near the corner when the two sit close. See "the corner's distance from the band edge" below |
+| Slope | **24 dB/oct** for a ported box (12 for sealed) — but **12 dB/oct regardless of enclosure** if the **LF-tail corner** (the field just above, *not* the sweep-start frequency — REW floors it at sweep-start + 1 Hz) is **≥ 20/√2 ≈ 14.14 Hz**, i.e. within ½ octave of this project's 20 Hz correction-band low edge | matches the speaker's physical roll-off; halves the group delay near the corner when the two sit close. See "the corner's distance from the band edge" below |
 | HF tail | no | measured: the error above 1 kHz is 0.000–0.002 dB. The traces run to the top of the sweep — 22.05 kHz on the 2026-08-17 set, 24 kHz where the sweep went to Nyquist — which is six octaves above the correction band, far enough that the edge cannot reach it. Confirm with the 6a subtraction rather than assuming |
 
 > ### ⚠ The LF tail is not optional — this guide said "no" and was wrong
@@ -1858,7 +2068,7 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 > |---|---|---|---|---|
 > | `LX` → `LX-MP` | **13.41** | 0.58 | 0.03 | 0.33 |
 > | `RX` → `RX-MP` | **8.88** | 0.53 | 0.03 | 0.04 |
-> | `SUM` → `SUM-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
+> | `LR` → `LR-SP-MP` | **11.15** | 0.56 | 0.02 | 0.03 |
 > | `FL` → `LFilter` | 0.21 | **2.41** | 0.30 | 0.13 |
 >
 > **The mechanism.** Minimum phase is obtained by a Hilbert transform of the
@@ -1889,16 +2099,49 @@ build `SUM-SP` from `LX`/`RX`-scale traces instead.
 > 12 for a sealed one. But see the next paragraph: if the corner sits near the
 > band edge, the physical slope can cost more group delay than the gate allows.
 >
+> **Not `0 dB/oct`, even though the dialog offers it and step 8 recommends
+> it there.** The two steps tail different objects. Step 8's `FL`/`FR` are
+> filters that are already, genuinely unity below the band — `0 dB/oct`
+> states a true fact about them. `LX`/`RX`/`LR-SP` here are *measurements*
+> of a loudspeaker that really does roll off below its bass extension;
+> `0 dB/oct` would assert it keeps outputting at full level arbitrarily far
+> below that, which is false. And because minimum phase is a *global*
+> Hilbert transform of log-magnitude, an untrue magnitude story below the
+> corner buys an untrue phase story inside the correction band, not just
+> below it — the corner-distance discussion just below is that same
+> mechanism at work for a slope that's merely too steep, not wrong in kind.
+>
+> **Nor does the 24→12 dB/oct fallback license going further, down to
+> `0 dB/oct`, even to kill the group-delay bleed-through more completely.**
+> It would: a flat continuation induces no transition-related group delay
+> at all, so in isolation it beats 12 dB/oct on that one number. But 24 and
+> 12 dB/oct are both models of a real enclosure — a real box could
+> plausibly be either alignment — so choosing between them trades one
+> believable physical story for another, in a region cut-only clamps out of
+> the final filter regardless of which you pick. `0 dB/oct` isn't a
+> shallower version of that same trade: **no physical driver outputs flat
+> to DC**, so it stops being a model of the loudspeaker at all and becomes
+> a known-false assumption chosen because it makes a test number smaller —
+> the same mistake as §5's cautionary tale, from the opposite direction:
+> that one trusted an artifact because the numbers said so; this one would
+> substitute a fabrication for missing data for the same reason. **Stop at
+> 12 dB/oct.**
+>
 > **The corner's distance from the band edge is a group-delay budget, not just
 > a splice-quality one.** A 24 dB/oct tail is a 4th-order high-pass; its group
 > delay peaks just above the corner and is still large half an octave up. REW
 > floors the corner field at **sweep-start + 1 Hz**, so a sweep that started at
-> 16 Hz forces the corner to 17 Hz — only ½ octave below a 20 Hz band edge. The
-> band-limited division then inherits that phase and the group-delay acceptance
-> test fails at ~21 Hz: measured **+22 ms against the 10 ms gate**, with the
-> filter's *magnitude* already clamped flat there, so it is purely the tail.
-> Moving the **target's** LF cutoff (step 5) does not touch this — it is a
-> different corner. Three ways out, cheapest first:
+> 16 Hz forces the corner to 17 Hz — only ½ octave below a 20 Hz band edge.
+> **"Within ½ octave of 20 Hz" means the corner sits at or above
+> `20 ÷ √2 ≈ 14.14 Hz`** — half an octave is a factor of `√2`, not 2, so this
+> triggers more easily than it sounds: a 12–13 Hz sweep-derived corner clears
+> it, a 15–16 Hz one (this project's actual `120.blue`/`120.green` captures,
+> which start ≈15 Hz rather than step 1's recommended 12–14) does not. The
+> band-limited division then inherits that phase and the group-delay
+> acceptance test fails at ~21 Hz: measured **+22 ms against the 10 ms gate**,
+> with the filter's *magnitude* already clamped flat there, so it is purely
+> the tail. Moving the **target's** LF cutoff (step 5) does not touch this —
+> it is a different corner. Three ways out, cheapest first:
 > - **Drop the tail to 12 dB/oct.** Halves the group delay near the corner. The
 >   gentler magnitude roll below the corner only asks for more sub-corner LF,
 >   which cut-only clamps — so it costs nothing real. Apply it in **both**
@@ -1995,8 +2238,31 @@ there to remove.
 #### The target's LF cutoff — move it to 5–10 Hz, below the correction band
 
 The target shape carries a **low-frequency cutoff**, and REW's default puts it
-at **20 Hz, 24 dB/oct** — right at the bottom edge of the match range. Move it
-to 5 or 10 Hz.
+at **20 Hz, 24 dB/oct** — right at the bottom edge of the match range. Move
+the **frequency** to 5 or 10 Hz. **Leave the slope at REW's default** — see
+below for why, unlike step 4, it isn't a choice worth making here at all.
+
+> ### Frequency is the only knob that matters — not slope, not "match the speaker"
+> It is tempting to import step 4's rule (match the physical roll-off) here.
+> Don't — it's the wrong mechanism entirely, for two independent reasons:
+>
+> 1. **The target isn't a measurement of anything.** It's a *want*, built by
+>    hand in the EQ window, not the response of a real loudspeaker. There is
+>    no physical roll-off for it to be faithful to.
+> 2. **The target is never minimum-phase-transformed.** Step 4's slope choice
+>    was load-bearing because `Generate minimum phase` is a *global* Hilbert
+>    transform: an unphysical magnitude assumption below the corner distorts
+>    the phase it computes everywhere, including inside the passband. The
+>    target has no such step — *"a target shape is magnitude only… only its
+>    magnitude survives step 8"* — it is used directly as operand A in a
+>    division restricted to the 20–225 Hz match range. There is no mechanism
+>    by which its slope could propagate anywhere.
+>
+> So the only thing that matters is **geometry**: get the corner far enough
+> below 20 Hz that its bend doesn't reach into the match range, which the
+> table below shows the *frequency* alone accomplishes. Once the corner sits
+> at 5–10 Hz, the transition is clear of 20 Hz regardless of how steep it is
+> — there is nothing left for a slope choice to do.
 
 **Does that corrupt the calculated target level, given the speakers produce
 nothing at 10 Hz?** No — and the reason is worth being clear about, because the
@@ -2181,7 +2447,7 @@ are placement and treatment, not the target — the same conclusion as §5's.)*
 
 > **6a. The minimum-phase copy must have preserved the magnitude.**
 > Export `LX` too, subtract, and require `|LX-MP| − |LX|` to sit at the
-> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `SUM-MP`.
+> **~0.03 dB** level across 20–225 Hz. Repeat for `RX-MP` and `LR-SP-MP`.
 >
 > This is a property, not a tolerance: a minimum-phase copy changes phase and
 > nothing else, so any visible deviation is an artifact. If it fails, the LF
@@ -2206,12 +2472,12 @@ they are not a defect. On the 2026-08-11 build:
 |---|---|---|
 | `LX-MP` (the divisor) | 14 bins, 3.9 dB @ 35.5 Hz | **6 bins, 40.1 dB @ 188 Hz** |
 | `RX-MP` (the divisor) | 23 bins, 4.1 dB @ 50.5 Hz | 13 bins, 4.1 dB @ 57.9 Hz |
-| **`Fl`** (what ships) | **38 bins, 5.8 dB @ 98.9 Hz** | 12 bins, 3.0 dB @ 35.5 Hz |
+| **`FL`** (what ships) | **38 bins, 5.8 dB @ 98.9 Hz** | 12 bins, 3.0 dB @ 35.5 Hz |
 
 A rule applied to *any* feature would have rejected `LX-MP` over a 6-bin dip
 and thrown away a build whose filter is comfortably inside the threshold. The
 same applies to the 74 Hz front-wall null that a 12-cycle FDW exposes on the
-left channel (§8): across 60–90 Hz `LX-MP` swings **35.7 dB**, while `Fl`
+left channel (§8): across 60–90 Hz `LX-MP` swings **35.7 dB**, while `FL`
 swings **11.7 dB** — at the null itself the filter sits at exactly 0.00 dB,
 unity, with the cut confined to the shoulders. **Windowing revealing a null is
 working as intended; it is not a Step 6 failure.**
@@ -2229,7 +2495,7 @@ causes: it was applied to the wrong measurement; `Apply Windows` was never
 pressed; or the arithmetic in step 3 was done *before* step 2 and is holding
 stale data. Thirty bins is the acceptance threshold from
 [R8](#r8-acceptance-tests), applied one step early — and the surest version of
-this test is to run it on `Fl` itself once step 7 is done.
+this test is to run it on `FL` itself once step 7 is done.
 
 *(Optional belt-and-braces, step 4a: bake the smoothing in by round trip —
 apply 1/6 octave to `LX`/`RX`, export as text **with that smoothing selected
@@ -2246,7 +2512,7 @@ and then two operations per channel (7c, 7d). The reason is §11: below 80 Hz
 the two speakers cancel each other at the seat, and dividing by each channel
 separately deepens that cancellation.
 
-**7a — take the spatial sum built in step 3.** Use `SUM-MP`.
+**7a — take the spatial sum built in step 3.** Use `LR-SP-MP`.
 
 > **Do not vector-average `LX` and `RX` here.** `L-SP` and `R-SP` are spatial
 > RMS averages: their position phase is already gone, so a vector average of
@@ -2260,7 +2526,7 @@ separately deepens that cancellation.
 | field | value |
 |---|---|
 | A | `Target L-R RMS average` |
-| B | **`SUM-MP`** |
+| B | **`LR-SP-MP`** |
 | Lower / upper frequency limit | **20 Hz / 80 Hz** |
 | **`Max gain`** | **selected**, value **0.0 dB** |
 
@@ -2289,8 +2555,8 @@ Name it `Fcommon`. There is only one, shared by both channels.
 
 Name it `Fper_L`. Repeat with B = `RX-MP` for `Fper_R`.
 
-**7d — combine.** Trace Arithmetic, **A times B**: `Fcommon × Fper_L` → `Fl`.
-Same with `Fper_R` → `Fr`.
+**7d — combine.** Trace Arithmetic, **A times B**: `Fcommon × Fper_L` → `FL`.
+Same with `Fper_R` → `FR`.
 
 Both factors are cut-only, so the product is cut-only: **`Max gain` remains
 selected and set to 0.0 dB for both divisions.** The
@@ -2397,14 +2663,14 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 
 ### Step 8 — Minimum phase, second time
 
-**Do:** **Generate minimum phase** on `Fl` → `LFilter`. Likewise `Fr` →
+**Do:** **Generate minimum phase** on `FL` → `LFilter`. Likewise `FR` →
 `RFilter`.
 
 | dialog option | set to | why |
 |---|---|---|
 | Cal file effects | **not included** | a filter has no microphone. Including the mic calibration would bake the microphone's response into what you play |
 | **LF tail** | **yes** — see the note below | as step 4: without it the transform corrupts the magnitude. This is the copy where it does the most damage |
-| Slope | **shallowest offered** (e.g. 6 dB/oct), or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `Fl` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
+| Slope | **shallowest offered — the beta dialog goes down to `0 dB/oct`** — or match step 4's choice if step 4 dropped to 12 dB/oct for the group-delay budget | `FL` is a filter, not a loudspeaker — it has no physical roll-off to match. See "Slope here is a real choice" below |
 | HF tail | no | as step 4 |
 
 > ### This is where the LF-tail error hurts most
@@ -2424,11 +2690,32 @@ full-resolution magnitude that was never really flat. A hard clamp constrains
 > It is what fails the [R8](#r8-acceptance-tests) narrowest-feature and
 > group-delay tests, both of which land at ~20 Hz.
 >
-> **Slope here is a real choice, not just conditioning.** `Fl` is a filter, not
+> **Slope here is a real choice, not just conditioning.** `FL` is a filter, not
 > a loudspeaker — it has no physical roll-off, and it is already unity below
 > the band limit. A steep tail imposes a subsonic high-pass on the deliverable.
 > That may be welcome, but decide it rather than inherit it: pick the
 > **shallowest slope offered** if you want the filter left as designed.
+>
+> **`0 dB/oct` is on the table, and it is the correct choice for this exact
+> goal.** The beta dialog's slope field goes all the way down to 0, and
+> `0 dB/oct` means the minimum-phase transform extrapolates the magnitude
+> below the corner as **flat, at unity**, rather than tilting it into any
+> roll-off at all — matching what `FL` already *is* there (§ above: unity
+> below the band limit) instead of imposing a shape on top of it. Where 24 or
+> 12 dB/oct asks "how steep should the imposed high-pass be," 0 dB/oct is the
+> answer "there should be no imposed high-pass" — the softest filter this
+> field can produce, and the one that changes `FL` least. Used on the current
+> `../DRC-120.green` build (`L.Filter`/`R.Filter`, per its audit), with no ill
+> effect traceable to it: the build's remaining acceptance failures sit at
+> 78–81 Hz, an octave-plus above where this slope acts.
+>
+> **Do not confuse `0 dB/oct` with `No LF tail`.** They are opposites, not
+> degrees of the same thing. `No LF tail` leaves the magnitude undefined
+> below the corner and is the documented failure two paragraphs up — 2–13 dB
+> of corrupted magnitude, the mistake this whole callout exists to retract.
+> `0 dB/oct` is the LF tail **switched on**, with the mildest slope it can
+> extrapolate with. Turning the tail on is not optional; choosing 0 dB/oct
+> for its slope is.
 >
 > **The target is unaffected**, because Step 5 builds it from `LX`/`RX` rather
 > than the minimum-phase copies (that is the reason for the instruction). If
@@ -2480,6 +2767,12 @@ are orthogonal. There is no double-correction to worry about.
    **131072 samples** — there is no tap count to set, the export length is
    fixed.
 3. Name them `FLX-trimmed-48k.wav` / `FRX-trimmed-48k.wav`.
+4. Alongside the WAVs, export the same two traces as **text**, `Smoothing:
+   None` — `FLX-trimmed.txt` / `FRX-trimmed.txt`. Deployment doesn't
+   convolve with these; it uses them as an independent statement of what
+   the filter is supposed to do, and checks the WAVs against it. Two of
+   the ten files [step 12](#step-12--prepare-the-export-bundle-for-open-media-drc)
+   needs — the rest of that bundle isn't produced yet at this point.
 
 **Trimming never changes the filter's response.** `FLX` and `FLX-trimmed` were
 compared bin by bin: identical to **0.0000 dB rms at every frequency**. All it
@@ -2525,6 +2818,123 @@ Exit status 0 = pass. Full description in [R8](#r8-acceptance-tests).
 
 **If it fails**, do not deploy and do not post-process. Go back to step 2,
 lower the FDW cycles, and re-run the chain from step 3. A filter that fails these tests fails audibly.
+
+---
+
+### Step 12 — Prepare the export bundle for open-media-drc
+
+**This is the condensed version.** `../open-media-drc/doc/FILTER_PROVENANCE_AND_RESPONSE.md`
+and `DEPLOYMENT.md` (here) are the reference — read one of those for the
+declare/tag/build/publish chain that comes after this step. This step is
+only about getting the **export directory** into the shape that chain, or
+the web UI's live installer, requires. Nothing below opens BruteFIR or
+touches a deployed room; it is still REW work.
+
+**The ten files, and what each one actually is** (per
+`open-media-drc/scripts/README.md`; case-insensitive, `.txt` optional):
+
+| file | what it is | source |
+|---|---|---|
+| `L.txt`, `R.txt` | the room before correction, left/right | **a sweep** — see the warning below |
+| `LR.txt` | the room before correction, the pair — REW's vector average | a sweep, `Vector average` of the two above |
+| `FLX-trimmed.txt`, `FRX-trimmed.txt` | the finished filter's own response | step 10.4 |
+| `FLX-trimmed-48k.wav`, `FRX-trimmed-48k.wav` | the deployable impulses | step 10 |
+| `L.filtered.txt`, `R.filtered.txt` | the room, with the filter applied — the prediction | built here |
+| `LR.filtered.txt` | the filtered pair | built here, `Vector average` of the two above |
+
+Pick **one** aggregate convention and hold it: `LR` throughout, never mixed
+with `L+R.txt`/`L+R.filtered.txt`. `DEPLOYMENT.md` §4.1 confirms this
+explicitly — *"for a filter built by this guide's procedure it is
+`vector_average`: step 3c forms the vector `L + R` and then subtracts
+6.0206 dB, which is `(L + R) / 2`."* A design that mixes `LR` with `L+R`
+anything is refused outright, because the two curves would then be
+measuring different things.
+
+> ### ⚠ `L.txt`/`R.txt`/`LR.txt` must be a sweep — not the traces this
+> ### procedure has been building all along
+> This is the mistake the checklist below exists to prevent. `L`/`R` as
+> they exist by this point in the session carry **step 2's FDW** — that is
+> correct and required for building the filter, and exactly wrong for
+> these three files. open-media-drc's own classification is explicit:
+> `L.txt`/`R.txt`/`LR.txt` are *"the room before correction… a sweep"* —
+> a direct, unregularised capture, not a divisor.
+>
+> **The open-media-drc install will not catch this for you.** Its
+> unsmoothed check looks for one specific thing — REW's `Smoothing`
+> header, the 1/3-octave-etc. display-smoothing setting — and an
+> FDW-windowed export states `Smoothing: None` just as honestly as a raw
+> one does. FDW is a different REW feature entirely, and nothing in the
+> validator inspects it. An FDW-windowed `L.txt` would be **accepted,
+> published, and shown on the page as the measured room** — quietly wrong,
+> exactly the failure mode step 2 itself warns about ("the window sits in
+> the wrong place... quietly, with no error message"), one stage further
+> downstream than that warning covers.
+
+**Do:**
+
+1. **Get unwindowed copies of the Main Listening Position's `L`/`R`.**
+   `L C`/`R C` (or whichever capture is the primary seat) already carry the
+   FDW applied in step 2 — do not touch those; the filter still needs them
+   exactly as they are. Instead, **duplicate** each one in REW's
+   measurement list, and on the duplicates only: open **IR Windows**,
+   untick **Add FDW**, press **`Apply Windows`**. Per step 2's own note,
+   this is fully reversible on an *original* capture — the duplicate
+   returns to exactly what the sweep measured. Name the duplicates so the
+   provenance is obvious in the session — this project's own declared
+   designs use an **`.orig`** suffix in the REW trace name (e.g.
+   `L 120.Rscreen.orig`) for exactly this reason; the trace name and the
+   exported file name don't have to match.
+2. **Set REW's `Smoothing` menu to `None`** before exporting anything in
+   this step. This is the separate control [§9](#9-which-smoothing-and-why-the-smoothing-menu-will-not-help-you)
+   already established doesn't reach trace arithmetic — it *does* reach a
+   plain text export, which is exactly the surface this step uses.
+3. **Form `LR`.** Select the two unwindowed duplicates, `Vector average` —
+   same operation as [3c](#3c--form-the-mono-sum-at-each-position), on
+   different inputs. Export all three: `L.txt`, `R.txt`, `LR.txt`.
+4. **Build the prediction.** Import `FLX-trimmed-48k.wav` and
+   `FRX-trimmed-48k.wav` as measurements (`File → Import → Impulse
+   Response`), the same mechanism step 3e used for `X801`.
+   **Check the import level before trusting it** — REW's impulse import
+   has no calibration reference for a filter WAV in general, not only for
+   an all-pass one; step 3e measured `X801` importing at +117 dB for
+   exactly this reason. Verify against a point you know (e.g. the filter's
+   own passband gain from `FLX-trimmed.txt`) and correct with `SPL offset`
+   → `Add to data` if it's off, rather than assuming it imported at 0 dB.
+5. **Multiply.** Trace Arithmetic, **A times B**: the *unwindowed* `L`
+   duplicate × the imported `FLX-trimmed` → `L.Filtered`. Same for
+   `R` × `FRX-trimmed` → `R.Filtered`. `Vector average` the two →
+   `LR.Filtered`. Export all three, `Smoothing: None` again.
+6. **Verify the set** before handing it to `new_filter_design.py` or the
+   web installer: exactly ten files, one aggregate convention throughout,
+   every text export's header literally reads `* Smoothing: None` (not
+   merely silent on the subject — an export that states no smoothing at
+   all is refused too, because it can't be *shown* to be unsmoothed), and
+   none reaches past 24 kHz. These are the same checks the tool runs; this
+   is catching them yourself first, with the file names in front of you
+   rather than in a refusal message.
+
+   ```sh
+   ./drc_export_preflight.py ../DRC-120.green/120.green.multipt.txts
+   ```
+
+   Run it on the export directory. It mirrors `new_filter_design.py`'s own
+   file-role resolver — including the `LR`/`L+R` conflict check above —
+   its unsmoothed/24 kHz checks, and the listening-position geometry
+   comments the web UI's room diagram reads out of `L`/`R`/the aggregate's
+   Notes field (front wall to MLP, MLP to speakers, speakers to front
+   wall, floor-marker colour — case-insensitive, decimal commas
+   normalised; REW writes the leading `* Note: ` itself on export, so type
+   only the sentence, e.g. `4.18m from front wall`).
+   Missing comments only warn, matching the real tool; conflicting values
+   between files fail, also matching it. None of this needs SoX or a Git
+   checkout of `open-media-drc` to run. It does **not** replace the TXT↔WAV
+   residual check (that needs SoX + NumPy); a clean pass here still means
+   running `new_filter_design.py --dry-run` before deploying, not skipping
+   it.
+7. **Commit.** The export directory must be a Git work tree, and all ten
+   files plus the `.mdat` must be committed — not merely staged — before
+   deployment can read them back later. See `DEPLOYMENT.md` §4 for what
+   comes next: declare the roles, tag, build, publish.
 
 ---
 
@@ -2675,8 +3085,8 @@ at **step 9**, where it is baked into the shipped filter.
 
 | # | applied to | producing | why |
 |---|---|---|---|
-| **1** | `LX`, `RX`, `SUM-SP` | `LX-MP`, `RX-MP`, `SUM-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
-| **2** | `Fl`, `Fr` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
+| **1** | `LX`, `RX`, `LR-SP` | `LX-MP`, `RX-MP`, `LR-SP-MP` | **every divisor must be minimum phase.** Divide by a raw measurement and the filter tries to invert the room's excess phase: acausal, pre-ringing, valid at one microphone point |
+| **2** | `FL`, `FR` | `LFilter`, `RFilter` | **the filter must be causal.** The clamp, the band blend and REW's un-windowed division output all leave residual non-minimum-phase content |
 | **✗** | `X801` | — | **never.** Its magnitude is 0.00000 dB, so its minimum-phase copy is a unit impulse — you would delete the filter entirely |
 
 That last row is measurable, not rhetorical:
@@ -2700,7 +3110,7 @@ interchangeable.
 
 | operation | result | outside its frequency limits | guards it offers | use it? |
 |---|---|---|---|---|
-| **`A ÷ B`**, A = Target, B = `SUM-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
+| **`A ÷ B`**, A = Target, B = `LR-SP-MP` | Target ÷ the spatial mono sum | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the common filter**, 20–**80** Hz ([§11](#11-below-80-hz-correct-the-sum--not-each-channel)) |
 | **`A ÷ B`**, A = Target, B = `LX-MP` | Target ÷ one channel | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | ✓ **the per-channel filter**, **80**–225 Hz |
 | `A ÷ B`, A = Target, B = `LX-MP` | Target ÷ measurement | **unity**, blended over one octave when `Max gain` is selected | **`Max gain`** | the older single-division form; deepens the 45–56 Hz mono cancellation |
 | `1/A` on `LX-MP` | flat at a chosen level | **unity**, blended over one octave | **`Max gain`**, target level, **exclude notches** | only if you want a flat target and no house curve |
@@ -3253,3 +3663,513 @@ bandpass, so it has no artifact floor to subtract.
 **Schroeder frequency.** `2000·√(T60/V)` — above it the room is diffuse and
 statistical, below it modal and position-specific. Here, ≈ 166 Hz. It is the
 frequency above which a single-point measurement starts to mean something.
+
+---
+
+# Part V — Automating the procedure
+
+Everything in Parts I–IV describes doing the eleven steps by hand, in the
+REW GUI. `rew_pipeline.py` (in a project checkout beside this document, e.g.
+`../DRC-120.green/`) does the same eleven steps by driving REW's own REST
+API — the same commands a person would trigger from a menu, issued over
+HTTP instead of a click. It does not reimplement the FDW window, the
+minimum-phase transform, or the divide; it asks the running REW instance to
+do each of those and reads back the result. That distinction is the whole
+point of building it this way instead of reconstructing REW's numerics from
+first principles: an independent from-scratch reconstruction was tried
+first (`build_filters.py`, `rew_fdw_probe.py` in the same checkout) and could
+not be validated against REW's actual output. Driving the real thing
+sidesteps the question entirely.
+
+This part assumes you have read Parts I–IV — it explains where the script's
+defaults come from and what each of its knobs corresponds to in the
+procedure above, not the procedure itself.
+
+## 13. What it does, and does not, do for you
+
+**Requires:** REW running with its API enabled (API preferences → *Start the
+API when REW starts*, or launched with `-api`; default port 4735), and the
+raw captures already loaded (imported normally, or loaded from a `.mdat` with
+`--session`).
+
+**Does, automatically, for one FDW cycle count per run:**
+
+- step 2 — enables the FDW at the chosen cycle count on every raw capture;
+- step 3 (3c, 3d) — the mono sum at each position, then the three spatial
+  RMS averages;
+- step 3e — bakes the crossover correction (`X801`) into the channel
+  averages;
+- step 4 — minimum phase, first time, cal included;
+- step 5 — builds the target, if one is not already loaded under the
+  configured name (§16);
+- step 6a — checks the minimum-phase copies preserved `|H|`, and warns if
+  not (§19 has the one case this actually caught);
+- step 7, 8, 9 — the division, minimum phase a second time (cal excluded),
+  bakes the crossover in last;
+- step 10 — trims to set latency, exports the filter WAVs and the text
+  responses open-media-drc's deployment tooling needs (§17);
+- step 11 — runs `drc_acceptance.py` on the result and reports pass/fail.
+
+**Does not do for you**, on purpose:
+
+- **3a, 3b** — collapsing repeat sweeps and (optional) level alignment. Do
+  these once, by hand, before the captures the script consumes exist; they
+  are judgment calls about your own measurement set, not something to
+  automate per run.
+- **Choosing a target shape or house curve.** §16 covers what the script
+  sets on its own, but the actual curve — flat, a house curve, a deliberate
+  scoop — is a decision, not a default to compute. Build one by hand in REW
+  once and point `--target-title`/`target_title` at it to have every run
+  reuse it, or let the script build the plain default described in §16.
+- **step 11's actual accept/reject judgment.** The script runs
+  `drc_acceptance.py` and reports its verdict; it does not loop over FDW
+  cycles or LF-tail slopes looking for a pass. That decision — and the
+  re-measurement at more than one position the guide's step 11 also asks
+  for — stays with you.
+
+## 14. Input measurements, and the config file
+
+**Naming convention**, overridable everywhere below: a centre pair `L0`/`R0`,
+optionally 1–4 more position pairs `L1`/`R1` … `L4`/`R4`, each `n` cm off
+centre (§6). If a real simultaneous sweep `L0+R0` exists it is used as the
+centre mono sum (3c), normalised `-6.0206 dB` automatically; otherwise the
+centre sum is `L0` vector-averaged with `R0`, same as every other position.
+
+**Config file.** Every DSP flag lives in one TOML file instead of a long
+command line: copy `rew_pipeline.example.toml` to `rew_pipeline.toml` (loaded
+automatically if present) or pass `--config some-file.toml`. A command-line
+flag always overrides the file; a key simply absent from the file falls back
+to the script's own built-in default — there is no separate "not set" value
+to get wrong. This project's own `rew_pipeline.toml` carries its actual
+measurement titles (`L.0`/`R.0`/`L 120.green.{n}`, not the generic
+`L0`/`L{n}`), so a plain `./rew_pipeline.py --tag fdw8 --output output/fdw8`
+is a complete, correct run with no other flags.
+
+| `.toml` table | key | script flag | meaning | default |
+|---|---|---|---|---|
+| `[measurements]` | `center_l`, `center_r` | `--center-l`, `--center-r` | the centre pair's titles | `L0`, `R0` |
+| | `pos_l_pattern`, `pos_r_pattern` | `--pos-l-pattern`, `--pos-r-pattern` | `{n}`-templated titles for the 4 off-centre positions | `L{n}`, `R{n}` |
+| | `num_positions` | `--num-positions` | how many of those 4 to use, 0–4 | `4` |
+| | `sum_c_title` | `--sum-c-title` | a real simultaneous `L0+R0` sweep, if you have one | unset → vector-average |
+| | `x801_title`, `x801_wav` | `--x801-title`, `--x801-wav` | the crossover correction, reused if already loaded, else imported | `X801`, `X801.wav` |
+| `[fdw]` | `cycles` | `--fdw-cycles` | step 2's FDW width | `8.0` |
+| `[target]` | `target_title` | `--target-title` | reused as-is if already loaded; else built (§16) under this name | `Target LR.RMS.AVG` |
+| | `lf_cutoff_hz`, `lf_slope_db_per_oct` | `--target-lf-cutoff`, `--target-lf-slope` | step 5's target LF cutoff | `10 Hz`, `24 dB/oct` |
+| | `house_curve` | `--house-curve` | a house-curve file (freq/dB pairs, same format as `../DRC-doc/house-curve-*.txt`), loaded before the target is built | unset → flat |
+| | `house_curve_log_interpolation` | `--house-curve-log-interpolation` | REW's own flag, set explicitly since there is no way to read back a prior value | `true` |
+| `[minphase1]` | `lf_tail_corner_hz`, `lf_tail_slope_db_per_oct` | `--lf1-corner`, `--lf1-slope` | step 4's LF tail | `16 Hz`, `12 dB/oct` |
+| | `hf_tail_corner_hz`, `hf_tail_slope_db_per_oct`, `hf_tail_frequency_warping` | `--hf1-corner`, `--hf1-slope`, `--hf1-warping` | step 4's HF tail | unset → off |
+| `[minphase2]` | same four keys | `--lf2-*`, `--hf2-*` | step 8's tails | `16 Hz @ 0 dB/oct`, HF off |
+| `[minphase]` | `replicate_data` | `--replicate-data` | REW's flag for whichever tail is disabled | `false` |
+| `[division]` | `common_low_hz`, `common_split_hz`, `upper_hz` | `--common-low`, `--common-split`, `--upper` | step 7's three band edges | `25`, `80`, `225 Hz` |
+
+Cal file effects (included in minimum phase #1, excluded in #2, R3) and max
+gain (`0.0 dB`, cut-only, throughout §11) are not configurable — the guide's
+reasoning for both is a property of the procedure, not a per-run choice.
+
+### Optional session cleanup
+
+Normal runs reuse an already loaded input session and replace their own
+same-tag results. Two additional CLI-only options allow a clean rebuild:
+
+- `--replace-session` requires `--session PATH`: it deletes all currently
+  loaded REW measurements before loading that session.
+- `--raw-only-session` keeps only the configured raw centre and off-centre
+  L/R captures, plus the simultaneous centre sum if configured. It removes
+  prior targets, filters, arithmetic results and imported X801; the build
+  recreates these from the captures and configured X801 WAV. Locked traces
+  that REW refuses to delete are reported and excluded from the build.
+  Missing required raw inputs cause an error.
+
+Both options are off by default. They modify the loaded REW session, so save
+any work you need before using them. These explicit cleanup options are
+broader than normal same-tag cleanup.
+
+## 15. Steps 2–10, one API call each
+
+The mapping is close to literal — each guide step is one or two REST calls
+per trace, not a reimplementation of what they compute:
+
+| guide step | REST call | REW command / endpoint |
+|---|---|---|
+| 2 — FDW | `POST /measurements/:id/ir-windows` | `{"addFDW": true, "fdwWidthCycles": N}` |
+| 3c — mono sum | `POST /measurements/process-measurements` | `"processName": "Vector average"` |
+| 3d — spatial average | same endpoint | `"processName": "RMS average"` |
+| 3e, 7d, 9 — multiply | same endpoint | `"processName": "Arithmetic"`, `"function": "A * B"` |
+| 4, 8 — minimum phase | `POST /measurements/:id/command` | `"command": "Minimum phase version"` |
+| 5 — target | `POST /measurements/:id/eq/command` | `"Calculate target level"`, then `"Generate target measurement"` |
+| 7 — division | `POST /measurements/process-measurements` | `"processName": "Arithmetic"`, `"function": "A / B"`, `maxGain`/`lowerLimit`/`upperLimit` |
+| 10 — trim | `POST /measurements/:id/command` | `"command": "Trim IR to windows"` |
+| — export | `GET /measurements/:id/impulse-response` | `?windowed=true&normalised=false&unit=percent`, written to WAV directly |
+
+Every one of these that produces a new trace does so under a fresh
+measurement, named `<role>.<tag>` (`LX.fdw8`, `LFilter.fdw12`, …) so that two
+runs with different `--tag`s coexist in the same REW session without
+clashing, and a rerun of the *same* tag replaces only its own prior
+measurements — never the raw captures, the target, or `X801`.
+
+### Optional refinement PEQs: 82 Hz and 530 Hz
+
+The refinement extension adds two configurable, common L/R peaking cuts to
+the inversion. Relative to `DRC-120.green` commit `f4fddf9`, this is new
+behavior in the local pipeline changes documented on 2026-09-13; that
+committed version does not offer these options. The underlying inversion
+bands, target construction and FDW defaults are unchanged.
+
+| Filter | Frequency | Gain | Q | Channels |
+|---|---:|---:|---:|---|
+| Remaining bass peak | 82 Hz | −1.0 dB | 2.0 | Both, identically |
+| Broad upper-bass/lower-midrange peak | 530 Hz | −1.5 dB | 2.0 | Both, identically |
+
+**Off by default.** Enable with `--refinement-peq`, or put this in the
+active TOML config (`rew_pipeline.example.toml` documents the same settings
+with `enabled = false`):
+
+```toml
+[experiments]
+enabled = true
+peq82_frequency_hz = 82.0
+peq82_gain_db = -1.0
+peq82_q = 2.0
+peq530_frequency_hz = 530.0
+peq530_gain_db = -1.5
+peq530_q = 2.0
+```
+
+The corresponding CLI controls are `--peq82-frequency`, `--peq82-gain`,
+`--peq82-q`, `--peq530-frequency`, `--peq530-gain`, and `--peq530-q`.
+Gains must be non-positive and Q must be positive. There is one enable
+switch for both PEQs; setting one gain to `0` makes that cut neutral when
+exporting a single-cut trial. There is currently no `--no-refinement-peq`
+flag: if TOML enables the feature, set `enabled = false` there or select a
+config that leaves it disabled to obtain a baseline run. Supplying PEQ
+parameters alone does not enable the feature.
+
+**When enabled, both cuts are baked into the exported filters.** After
+forming `FL = F.common × Fper_L` and `FR = F.common × Fper_R`, the pipeline
+constructs explicit REW `PK` filter responses and multiplies their combined
+response into both channels:
+
+```
+FL.exp = FL × PEQ.both
+FR.exp = FR × PEQ.both
+        → minimum phase #2 → multiply by X801 → trim → export
+```
+
+Thus the normal `FLX-trimmed-48k.wav` / `FRX-trimmed-48k.wav`, filter text
+exports and `L.filtered` / `R.filtered` / `LR.filtered` predictions include
+both cuts. No additional playback PEQ is required. This added stage also
+applies the 530 Hz cut even though the inversion's upper band edge remains
+225 Hz. It does not change the inversion target or extend the division band.
+
+The supporting `rew_client.py` methods replace the EQ rows on the working
+filter measurements, clear unused rows, read back the requested settings,
+and invoke REW's **Generate filters measurement** command. The response is
+then explicitly cascaded into the correction; it is not merely an EQ-panel
+setting attached to a plot.
+
+For inspection, the enabled run retains these tagged trace families in REW:
+
+- `PEQ.82`, `PEQ.530`, `PEQ.both`: standalone EQ responses.
+- `LFilter.baseline` / `RFilter.baseline`, `FLX.baseline` / `FRX.baseline`,
+  and `FLX-trimmed.baseline` / `FRX-trimmed.baseline`: the correction rebuilt
+  through the same minimum-phase, X801 and trimming steps without either cut.
+- `L.filtered.baseline`, `R.filtered.baseline`, `LR.filtered.baseline`:
+  baseline predictions.
+- `L.filtered.eq82`, `R.filtered.eq82`, `LR.filtered.eq82`, and the matching
+  `.eq530` family: individual-cut predictions, made by multiplying the
+  finished baseline predictions by each standalone PEQ. These are comparison
+  traces, not separately exported single-cut filter builds.
+- The ordinary `L.filtered`, `R.filtered`, `LR.filtered`: the combined
+  candidate used for export.
+
+The manifest records the parameters and comparison UUIDs; `--save-mdat`
+preserves the session for later inspection. To make room for comparisons,
+the enabled run deletes its temporary per-position sum and `LX`/`RX`
+construction traces after their results have been incorporated. Same-tag
+cleanup also recognises the new PEQ and comparison trace names.
+
+For example, from the project checkout, build the FDW6 combined candidate:
+
+```sh
+./rew_pipeline.py --fdw-cycles 6 --refinement-peq \
+  --tag clean-fdw6-peq --output output/clean-fdw6-peq --save-mdat
+```
+
+The existing `output/clean-fdw6-peq/manifest.json` records FDW 6 and both
+cuts at the values above. The active `DRC-120.green/rew_pipeline.toml` at
+this writing has no `[experiments]` section and still selects FDW 8, so a
+normal run enables neither cut. Predictions are calculated from the input
+captures; judging the tonal change still requires listening and acoustic
+verification of the final filters.
+
+## 16. Building the target
+
+Answering directly, since it is the one step with real judgment in it:
+
+- **House curve:** none, by default — the built target is flat (step 5's
+  "no scoop" option), because a curve is a decision this script should not
+  make silently. Pass `--house-curve`/`house_curve` to load one first (REW's
+  `/eq/house-curve` endpoint) — `../DRC-doc/house-curve-harman-fuller.txt` is
+  one such file, see step 5's "four candidate shapes".
+- **Target level:** yes — `"Calculate target level"`, exactly step 5's "press
+  Calculate and let REW set it", run on the RMS average of `LX`/`RX` (the
+  same trace step 5 uses).
+- **Then "Generate target measurement":** yes, immediately after, on the
+  same trace — this is the call that actually produces the target
+  measurement the division in step 7 consumes.
+- **Target type / shape:** `"Full range"`, always, not `"Flat"` (rejected —
+  REW's valid shapes are `Full range`, `Bass limited`, `Subwoofer`, `Driver`,
+  `None`) and not REW's own default of `"Subwoofer"`. That default matters:
+  it silently attaches a bass-management crossover (REW's
+  `TargetSettings.bassManagementCutoffHz`/`bassManagementSlopedBPerOctave`,
+  visible only once you inspect the object — see R12 below), and a target built
+  under it produced a visibly worse filter — sharpest feature Q 12–13
+  against a Q ≤ 12 gate, and +11…+24 ms of group delay where the intended
+  build shows single-digit ms — until this was found and fixed. Always
+  `Full range` for a two-channel main-speaker target.
+- **LF cutoff / slope:** `10 Hz` at `24 dB/oct` by default (`target_lf_cutoff`
+  / `target_lf_slope`), matching step 5's "move it to 5–10 Hz, below the
+  correction band" — REW's own factory default is `20 Hz`, which sits inside
+  the match range and bends the target there (step 5 has the measured
+  table).
+
+If a target under the configured name is already loaded — for instance one
+you shaped by hand in REW with a deliberate scoop — none of the above runs;
+the script reuses it as-is. That is the intended way to try a non-default
+target shape.
+
+## 17. Output files
+
+Exactly the ten files `open-media-drc`'s `scripts/new_filter_design.py`
+resolves by name (its own `FILTERS_AND_DRC.md` and the `TXT_NAMES` /
+`AGGREGATE_NAMES` / `WAV_PATTERNS` tables in that script), written into
+`--output`/`output`, nothing else:
+
+```
+FLX-trimmed-48k.wav   FRX-trimmed-48k.wav     the two filters -- BruteFIR input
+FLX-trimmed.txt       FRX-trimmed.txt         their frequency response
+L.txt   R.txt   LR.txt                        measured, before correction
+L.filtered.txt   R.filtered.txt   LR.filtered.txt   raw (no-FDW) capture x filter
+```
+
+plus `manifest.json` (every parameter and measurement UUID from the run) and
+`acceptance.txt` (`drc_acceptance.py`'s own output) — both ignored by
+`new_filter_design.py`, which matches files by name and does not mind extras.
+Deliberately **not** exported: a text trace for every intermediate
+measurement the pipeline builds (`LX`, `LX-MP`, `F.common`, …) — those stay
+in REW for inspection if you want them, but going to a design bundle would
+just be clutter next to the eight curves anything downstream actually plots.
+
+This directory is a complete, ready-to-import export set — the same shape as
+a `.txts` folder exported by hand from REW, beside the `.mdat` it came from.
+Point `new_filter_design.py` (see its own `--help` and
+`../open-media-drc/scripts/README.md`) at it to deploy; `--dry-run` runs
+every check, including the filter TXT/WAV residual, without writing
+anything. A real (non-dry-run) deployment additionally wants the ten files
+and the `.mdat` committed to git and `--mdat <session>.mdat` naming the
+session, both left to you rather than assumed by `rew_pipeline.py`.
+
+## 18. Rebuilding at a different FDW, or after a tweak
+
+```sh
+./rew_pipeline.py --fdw-cycles 12 --tag fdw12 --output output/fdw12
+```
+
+is the whole of it — a new `--tag` keeps the new run's measurements alongside
+the old ones in REW rather than overwriting them, so both can be inspected
+side by side before choosing. Rerunning the *same* tag (after editing
+`rew_pipeline.toml`, say, to try a different LF-tail slope) replaces that
+run's own measurements in place.
+
+## 19. Quirks the API did not document
+
+Found by testing against this project's own reference build, not written
+down anywhere in the API help:
+
+- **Measurement index numbers shift on every add or delete** (the API docs
+  do say indexing is "NOT recommended" but not why it actually bites): a
+  value captured as an index and used several steps later, after other
+  measurements have been created or removed, can silently refer to the
+  wrong trace. Every reference the script keeps across steps is the
+  measurement's **UUID**, never its index.
+- **`Response copy` does not carry the source's notes** — only its own
+  "Copy of `<title>`" line — so the geometry comments a downstream tool
+  might look for (front-wall/speaker distance, marker colour — §17, R12)
+  have to be copied over explicitly afterward.
+- **`Response copy` does not detach the IR-window/FDW state either.** Taking
+  a "no-FDW" snapshot of a capture *before* enabling FDW on the original,
+  expecting the copy to be unaffected by what happens to the original next,
+  produced a copy that showed FDW enabled anyway once the original was
+  mutated. The fix matches what actually happened in the reference session's
+  own history: build the *entire* chain first with FDW on throughout, and
+  only at the very end — once nothing downstream still needs it — turn FDW
+  off on the original captures and take the snapshot then.
+- **`/measurements/:id/frequency-response` could not be made to return
+  genuinely unsmoothed data** in testing, regardless of a `smoothing=None`
+  query parameter or a `"Smooth"` command with `"None"` issued first — it
+  came back at whatever log-spaced default (1/48 octave, 96 points/octave)
+  the measurement last displayed at in the GUI. Every text export here is
+  therefore computed directly from `/measurements/:id/impulse-response`
+  instead (a plain FFT of the full-length impulse is unsmoothed and
+  linear-spaced by construction), not from that endpoint.
+- **A filter's exported text and its WAV must agree on where t=0 is**, and
+  it is not the buffer start. `new_filter_design.py`'s own residual check
+  only searches for an alignment within 16 samples of the WAV's peak; a
+  text export phase-referenced to the buffer's sample 0 instead of to that
+  peak sample produced a spurious ~104° RMS phase residual — appearing as a
+  data-quality failure — even though the magnitude matched to 0.0002 dB.
+  Referencing phase to the peak sample fixed it to exactly 0.
+
+## R12. Appendix — how the REW API was explored
+
+The API is self-documenting to a useful degree, and every non-obvious
+setting used above was found this way rather than guessed. This section is
+the method, so it is repeatable for whatever the next unfamiliar endpoint
+turns out to be.
+
+**Start with the specification.** `GET /doc.json` on a running instance
+returns the full OpenAPI/Swagger document — every path, every request/
+response schema, by name. For a data model with fields whose meaning is not
+obvious from the prose help at `GET /` (rendered from the same source as
+`localhost:4735`'s own browsable page), the schema in `doc.json` is the
+fastest way to see what a `POST` body can actually contain, for instance:
+
+```json
+"TargetSettings": {
+  "type": "object",
+  "properties": {
+    "shape": {"type": "string"},
+    "bassManagementSlopedBPerOctave": {"type": "integer"},
+    "bassManagementCutoffHz": {"type": "integer"},
+    "lowFreqSlopedBPerOctave": {"type": "integer"},
+    "lowFreqCutoffHz": {"type": "integer"},
+    "lowPassCrossoverType": {"type": "string"},
+    "highPassCrossoverType": {"type": "string"},
+    "lowPassCutoffHz": {"type": "integer"},
+    "highPassCutoffHz": {"type": "integer"}
+  }
+}
+```
+
+That is where **`bassManagementCutoffHz`** and its neighbours were first
+seen — not from any narrative documentation, which never mentions them by
+name — by reading the schema for the object `GET /measurements/:id/
+target-settings` returns. The type only says the field exists and that it is
+an integer; it does not say which `shape` values are valid, or that
+`bassManagementCutoffHz` only matters for some of them.
+
+**Read a live object back before changing it.** `GET
+/measurements/:id/target-settings` on an ordinary loaded measurement
+returned:
+
+```json
+{
+  "shape": "Subwoofer",
+  "bassManagementSlopedBPerOctave": 12,
+  "bassManagementCutoffHz": 80,
+  "lowFreqSlopedBPerOctave": 24,
+  "lowFreqCutoffHz": 10,
+  "lowPassCrossoverType": "L-R2",
+  "highPassCrossoverType": "L-R2",
+  "lowPassCutoffHz": 1000,
+  "highPassCutoffHz": 100
+}
+```
+
+`"Subwoofer"` as the factory-default `shape`, for a full-range two-channel
+target, was the finding that mattered — not something to have assumed, since
+nothing in the prose documentation says what REW's default target shape is
+for a fresh measurement. This is also what made the actual bug visible:
+building a target under this default and running `drc_acceptance.py` against
+the resulting filter showed a materially worse result (§16) than the
+existing reference build, which pointed straight back at this object.
+
+**Let the API's own validation enumerate the choices.** The schema says
+`shape` is a string; it does not say which strings. Rather than search the
+GUI for the exact wording, `POST` a plausible guess and read the error:
+
+```sh
+$ curl -X POST localhost:4735/measurements/<uuid>/target-settings \
+       -d '{"shape": "Flat"}'
+{
+  "message": "Flat is not a valid target shape",
+  "validValues": ["Full range", "Bass limited", "Subwoofer", "Driver", "None"]
+}
+```
+
+REW's API consistently does this: an invalid enum value comes back with the
+complete valid list, so a wrong guess is one request, not a search through
+the GUI or the help pages. The same pattern found the valid `Arithmetic`
+`"function"` strings (`GET /measurements/arithmetic-functions`) and the valid
+smoothing values (`GET /measurements/frequency-response/smoothing-choices`)
+before any POST was needed at all — some endpoints hand you the enumeration
+directly, without needing to trigger a validation error first.
+
+**The FDW is a field on the IR-window object, not a separate endpoint.**
+`GET /measurements/:id/ir-windows` on a capture that already had it enabled
+(one from the reference session, inspected specifically to confirm this)
+returned:
+
+```json
+{
+  "leftWindowType": "Rectangular", "leftWindowWidthms": 500,
+  "rightWindowType": "Rectangular", "rightWindowWidthms": 1000,
+  "refTimems": 0,
+  "addFDW": true, "fdwWidthCycles": 8.0
+}
+```
+
+— confirming both that `addFDW`/`fdwWidthCycles` are the only two fields
+that matter for step 2, and, independently, that this project's own reference
+build really did use exactly 8 cycles and the rectangular 500/1000 ms
+windows Part III's step 2 assumes throughout. Setting the FDW is then one
+`POST` to the same endpoint with just those two fields — the API explicitly
+documents partial objects being accepted by `POST`, so the rectangular
+window fields do not need to be repeated.
+
+**Minimum phase's tail parameters came from the prose help, verified against
+a real object.** Unlike the two above, `/measurements/:id/command` with
+`"Minimum phase version"` *is* documented with a worked example in the HTML
+help (`analysis/rew-api-help.txt` in the project checkout, saved from
+`GET /`), naming `"include cal"`, `"append lf tail"`, `"lf tail start"`,
+`"lf tail slope"` explicitly. What the help does not give is which numbers
+this project's own reference filter actually used — for that,
+`120.green.multipt.FDW8.mdat`'s own measurement *notes* were the source, not
+the API: each `-MP` and `Filter` measurement in that session carries a
+REW-generated note stating its own tail settings verbatim, e.g.
+
+```
+Minimum phase copy of LX
+Cal file effects included
+LF tail from 16 Hz at 12 dB/octave
+No HF tail
+```
+
+read via `GET /measurements/:id` on that specific reference measurement.
+Every "16 Hz @ 12 dB/oct" / "16 Hz @ 0 dB/oct" default in §14's table is
+transcribed from notes like this one, not chosen or guessed — the API only
+had to be asked to *set* the same values back, on a fresh build, once they
+were known.
+
+**When neither the schema nor an error message settles it, test against a
+known-good file.** The one genuinely open question — what phase convention
+a filter's text export must use to satisfy `new_filter_design.py`'s own
+TXT-vs-WAV residual check (§19's last item) — was not answered by any REW
+endpoint at all, because the check lives in the *other* project. It was
+settled by importing `deploy_filter.filter_spectrum` and
+`response_metrics` directly and running them against a real WAV/TXT pair
+at a few candidate delays:
+
+```python
+for delay in [0, 8192, -8192]:
+    ...
+# delay=0            rms_phase_deg = 0.0015   (this script's own convention)
+# delay=8192 (peak)  rms_phase_deg = 0.0000   (what the checker expects)
+# delay=-8192        rms_phase_deg = 104.3
+```
+
+— a one-sample offset either side of the correct value at `8192` already
+produces ~104° of residual (a phase check this sensitive is doing its job:
+one sample at 24 kHz is half a cycle), which is what made the fix
+unambiguous once found.

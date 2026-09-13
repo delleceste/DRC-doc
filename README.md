@@ -18,12 +18,21 @@ no measurement data lives here.
 ./make-pdf.sh REW-INVERSION.md      # default target is NOTES.md
 ```
 
+## Claude skill
+
+`.claude/skills/rew-inversion-audit/` — invoke with `/rew-inversion-audit`,
+or just ask Claude to review a filter export / explain a `drc_acceptance.py`
+failure and it triggers on its own. Audits REW inversion-method exports
+against `REW-INVERSION.md`'s procedure and runs/explains the acceptance
+tests. See the skill file for the full brief.
+
 ## Tools
 
 | | |
 |---|---|
 | `allpass_tool.py` | L/R phase-cancellation study, all-pass and EQ design (Qt) |
 | `drc_acceptance.py` | the three-test build-quality gate for a filter WAV |
+| `drc_export_preflight.py` | sanity-checks a REW `.txts` export directory before deployment — naming, `LR`/`L+R` conflicts, unsmoothed, ≤24 kHz |
 | `roomgeom.py` | single source of truth for the listening-room geometry |
 | `gik_screen_panel_placement-120cm.py` | generates the 120 cm ScreenPanel placement and measurement figures |
 | `housecurve.py` | generates REW-loadable house curves |
