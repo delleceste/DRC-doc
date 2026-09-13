@@ -76,6 +76,15 @@ current one:
   - [R9. Does the source correlation invalidate §11?](#r9-does-the-source-correlation-invalidate-11)
   - [R10. Troubleshooting](#r10-troubleshooting)
   - [R11. Glossary](#r11-glossary)
+- [Part V — Automating the procedure](#part-v--automating-the-procedure)
+  - [12. What it does, and does not, do for you](#12-what-it-does-and-does-not-do-for-you)
+  - [13. Input measurements, and the config file](#13-input-measurements-and-the-config-file)
+  - [14. Steps 2–10, one API call each](#14-steps-210-one-api-call-each)
+  - [15. Building the target](#15-building-the-target)
+  - [16. Output files](#16-output-files)
+  - [17. Rebuilding at a different FDW, or after a tweak](#17-rebuilding-at-a-different-fdw-or-after-a-tweak)
+  - [18. Quirks the API did not document](#18-quirks-the-api-did-not-document)
+  - [R12. Appendix — how the REW API was explored](#r12-appendix--how-the-rew-api-was-explored)
 
 ---
 
@@ -3253,3 +3262,400 @@ bandpass, so it has no artifact floor to subtract.
 **Schroeder frequency.** `2000·√(T60/V)` — above it the room is diffuse and
 statistical, below it modal and position-specific. Here, ≈ 166 Hz. It is the
 frequency above which a single-point measurement starts to mean something.
+
+---
+
+# Part V — Automating the procedure
+
+Everything in Parts I–IV describes doing the eleven steps by hand, in the
+REW GUI. `rew_pipeline.py` (in a project checkout beside this document, e.g.
+`../DRC-120.green/`) does the same eleven steps by driving REW's own REST
+API — the same commands a person would trigger from a menu, issued over
+HTTP instead of a click. It does not reimplement the FDW window, the
+minimum-phase transform, or the divide; it asks the running REW instance to
+do each of those and reads back the result. That distinction is the whole
+point of building it this way instead of reconstructing REW's numerics from
+first principles: an independent from-scratch reconstruction was tried
+first (`build_filters.py`, `rew_fdw_probe.py` in the same checkout) and could
+not be validated against REW's actual output. Driving the real thing
+sidesteps the question entirely.
+
+This part assumes you have read Parts I–IV — it explains where the script's
+defaults come from and what each of its knobs corresponds to in the
+procedure above, not the procedure itself.
+
+## 12. What it does, and does not, do for you
+
+**Requires:** REW running with its API enabled (API preferences → *Start the
+API when REW starts*, or launched with `-api`; default port 4735), and the
+raw captures already loaded (imported normally, or loaded from a `.mdat` with
+`--session`).
+
+**Does, automatically, for one FDW cycle count per run:**
+
+- step 2 — enables the FDW at the chosen cycle count on every raw capture;
+- step 3 (3c, 3d) — the mono sum at each position, then the three spatial
+  RMS averages;
+- step 3e — bakes the crossover correction (`X801`) into the channel
+  averages;
+- step 4 — minimum phase, first time, cal included;
+- step 5 — builds the target, if one is not already loaded under the
+  configured name (§15);
+- step 6a — checks the minimum-phase copies preserved `|H|`, and warns if
+  not (§18 has the one case this actually caught);
+- step 7, 8, 9 — the division, minimum phase a second time (cal excluded),
+  bakes the crossover in last;
+- step 10 — trims to set latency, exports the filter WAVs and the text
+  responses open-media-drc's deployment tooling needs (§16);
+- step 11 — runs `drc_acceptance.py` on the result and reports pass/fail.
+
+**Does not do for you**, on purpose:
+
+- **3a, 3b** — collapsing repeat sweeps and (optional) level alignment. Do
+  these once, by hand, before the captures the script consumes exist; they
+  are judgment calls about your own measurement set, not something to
+  automate per run.
+- **Choosing a target shape or house curve.** §15 covers what the script
+  sets on its own, but the actual curve — flat, a house curve, a deliberate
+  scoop — is a decision, not a default to compute. Build one by hand in REW
+  once and point `--target-title`/`target_title` at it to have every run
+  reuse it, or let the script build the plain default described in §15.
+- **step 11's actual accept/reject judgment.** The script runs
+  `drc_acceptance.py` and reports its verdict; it does not loop over FDW
+  cycles or LF-tail slopes looking for a pass. That decision — and the
+  re-measurement at more than one position the guide's step 11 also asks
+  for — stays with you.
+
+## 13. Input measurements, and the config file
+
+**Naming convention**, overridable everywhere below: a centre pair `L0`/`R0`,
+optionally 1–4 more position pairs `L1`/`R1` … `L4`/`R4`, each `n` cm off
+centre (§6). If a real simultaneous sweep `L0+R0` exists it is used as the
+centre mono sum (3c), normalised `-6.0206 dB` automatically; otherwise the
+centre sum is `L0` vector-averaged with `R0`, same as every other position.
+
+**Config file.** Every DSP flag lives in one TOML file instead of a long
+command line: copy `rew_pipeline.example.toml` to `rew_pipeline.toml` (loaded
+automatically if present) or pass `--config some-file.toml`. A command-line
+flag always overrides the file; a key simply absent from the file falls back
+to the script's own built-in default — there is no separate "not set" value
+to get wrong. This project's own `rew_pipeline.toml` carries its actual
+measurement titles (`L.0`/`R.0`/`L 120.green.{n}`, not the generic
+`L0`/`L{n}`), so a plain `./rew_pipeline.py --tag fdw8 --output output/fdw8`
+is a complete, correct run with no other flags.
+
+| `.toml` table | key | script flag | meaning | default |
+|---|---|---|---|---|
+| `[measurements]` | `center_l`, `center_r` | `--center-l`, `--center-r` | the centre pair's titles | `L0`, `R0` |
+| | `pos_l_pattern`, `pos_r_pattern` | `--pos-l-pattern`, `--pos-r-pattern` | `{n}`-templated titles for the 4 off-centre positions | `L{n}`, `R{n}` |
+| | `num_positions` | `--num-positions` | how many of those 4 to use, 0–4 | `4` |
+| | `sum_c_title` | `--sum-c-title` | a real simultaneous `L0+R0` sweep, if you have one | unset → vector-average |
+| | `x801_title`, `x801_wav` | `--x801-title`, `--x801-wav` | the crossover correction, reused if already loaded, else imported | `X801`, `X801.wav` |
+| `[fdw]` | `cycles` | `--fdw-cycles` | step 2's FDW width | `8.0` |
+| `[target]` | `target_title` | `--target-title` | reused as-is if already loaded; else built (§15) under this name | `Target LR.RMS.AVG` |
+| | `lf_cutoff_hz`, `lf_slope_db_per_oct` | `--target-lf-cutoff`, `--target-lf-slope` | step 5's target LF cutoff | `10 Hz`, `24 dB/oct` |
+| | `house_curve` | `--house-curve` | a house-curve file (freq/dB pairs, same format as `../DRC-doc/house-curve-*.txt`), loaded before the target is built | unset → flat |
+| | `house_curve_log_interpolation` | `--house-curve-log-interpolation` | REW's own flag, set explicitly since there is no way to read back a prior value | `true` |
+| `[minphase1]` | `lf_tail_corner_hz`, `lf_tail_slope_db_per_oct` | `--lf1-corner`, `--lf1-slope` | step 4's LF tail | `16 Hz`, `12 dB/oct` |
+| | `hf_tail_corner_hz`, `hf_tail_slope_db_per_oct`, `hf_tail_frequency_warping` | `--hf1-corner`, `--hf1-slope`, `--hf1-warping` | step 4's HF tail | unset → off |
+| `[minphase2]` | same four keys | `--lf2-*`, `--hf2-*` | step 8's tails | `16 Hz @ 0 dB/oct`, HF off |
+| `[minphase]` | `replicate_data` | `--replicate-data` | REW's flag for whichever tail is disabled | `false` |
+| `[division]` | `common_low_hz`, `common_split_hz`, `upper_hz` | `--common-low`, `--common-split`, `--upper` | step 7's three band edges | `25`, `80`, `225 Hz` |
+
+Cal file effects (included in minimum phase #1, excluded in #2, R3) and max
+gain (`0.0 dB`, cut-only, throughout §11) are not configurable — the guide's
+reasoning for both is a property of the procedure, not a per-run choice.
+
+## 14. Steps 2–10, one API call each
+
+The mapping is close to literal — each guide step is one or two REST calls
+per trace, not a reimplementation of what they compute:
+
+| guide step | REST call | REW command / endpoint |
+|---|---|---|
+| 2 — FDW | `POST /measurements/:id/ir-windows` | `{"addFDW": true, "fdwWidthCycles": N}` |
+| 3c — mono sum | `POST /measurements/process-measurements` | `"processName": "Vector average"` |
+| 3d — spatial average | same endpoint | `"processName": "RMS average"` |
+| 3e, 7d, 9 — multiply | same endpoint | `"processName": "Arithmetic"`, `"function": "A * B"` |
+| 4, 8 — minimum phase | `POST /measurements/:id/command` | `"command": "Minimum phase version"` |
+| 5 — target | `POST /measurements/:id/eq/command` | `"Calculate target level"`, then `"Generate target measurement"` |
+| 7 — division | `POST /measurements/process-measurements` | `"processName": "Arithmetic"`, `"function": "A / B"`, `maxGain`/`lowerLimit`/`upperLimit` |
+| 10 — trim | `POST /measurements/:id/command` | `"command": "Trim IR to windows"` |
+| — export | `GET /measurements/:id/impulse-response` | `?windowed=true&normalised=false&unit=percent`, written to WAV directly |
+
+Every one of these that produces a new trace does so under a fresh
+measurement, named `<role>.<tag>` (`LX.fdw8`, `LFilter.fdw12`, …) so that two
+runs with different `--tag`s coexist in the same REW session without
+clashing, and a rerun of the *same* tag replaces only its own prior
+measurements — never the raw captures, the target, or `X801`.
+
+## 15. Building the target
+
+Answering directly, since it is the one step with real judgment in it:
+
+- **House curve:** none, by default — the built target is flat (step 5's
+  "no scoop" option), because a curve is a decision this script should not
+  make silently. Pass `--house-curve`/`house_curve` to load one first (REW's
+  `/eq/house-curve` endpoint) — `../DRC-doc/house-curve-harman-fuller.txt` is
+  one such file, see §5's "four candidate shapes".
+- **Target level:** yes — `"Calculate target level"`, exactly step 5's "press
+  Calculate and let REW set it", run on the RMS average of `LX`/`RX` (the
+  same trace step 5 uses).
+- **Then "Generate target measurement":** yes, immediately after, on the
+  same trace — this is the call that actually produces the target
+  measurement the division in step 7 consumes.
+- **Target type / shape:** `"Full range"`, always, not `"Flat"` (rejected —
+  REW's valid shapes are `Full range`, `Bass limited`, `Subwoofer`, `Driver`,
+  `None`) and not REW's own default of `"Subwoofer"`. That default matters:
+  it silently attaches a bass-management crossover (REW's
+  `TargetSettings.bassManagementCutoffHz`/`bassManagementSlopedBPerOctave`,
+  visible only once you inspect the object — see R12), and a target built
+  under it produced a visibly worse filter — sharpest feature Q 12–13
+  against a Q ≤ 12 gate, and +11…+24 ms of group delay where the intended
+  build shows single-digit ms — until this was found and fixed. Always
+  `Full range` for a two-channel main-speaker target.
+- **LF cutoff / slope:** `10 Hz` at `24 dB/oct` by default (`target_lf_cutoff`
+  / `target_lf_slope`), matching step 5's "move it to 5–10 Hz, below the
+  correction band" — REW's own factory default is `20 Hz`, which sits inside
+  the match range and bends the target there (step 5 has the measured
+  table).
+
+If a target under the configured name is already loaded — for instance one
+you shaped by hand in REW with a deliberate scoop — none of the above runs;
+the script reuses it as-is. That is the intended way to try a non-default
+target shape.
+
+## 16. Output files
+
+Exactly the ten files `open-media-drc`'s `scripts/new_filter_design.py`
+resolves by name (its own `FILTERS_AND_DRC.md` and the `TXT_NAMES` /
+`AGGREGATE_NAMES` / `WAV_PATTERNS` tables in that script), written into
+`--output`/`output`, nothing else:
+
+```
+FLX-trimmed-48k.wav   FRX-trimmed-48k.wav     the two filters -- BruteFIR input
+FLX-trimmed.txt       FRX-trimmed.txt         their frequency response
+L.txt   R.txt   LR.txt                        measured, before correction
+L.filtered.txt   R.filtered.txt   LR.filtered.txt   raw (no-FDW) capture x filter
+```
+
+plus `manifest.json` (every parameter and measurement UUID from the run) and
+`acceptance.txt` (`drc_acceptance.py`'s own output) — both ignored by
+`new_filter_design.py`, which matches files by name and does not mind extras.
+Deliberately **not** exported: a text trace for every intermediate
+measurement the pipeline builds (`LX`, `LX-MP`, `F.common`, …) — those stay
+in REW for inspection if you want them, but going to a design bundle would
+just be clutter next to the eight curves anything downstream actually plots.
+
+This directory is a complete, ready-to-import export set — the same shape as
+a `.txts` folder exported by hand from REW, beside the `.mdat` it came from.
+Point `new_filter_design.py` (see its own `--help` and
+`../open-media-drc/scripts/README.md`) at it to deploy; `--dry-run` runs
+every check, including the filter TXT/WAV residual, without writing
+anything. A real (non-dry-run) deployment additionally wants the ten files
+and the `.mdat` committed to git and `--mdat <session>.mdat` naming the
+session, both left to you rather than assumed by `rew_pipeline.py`.
+
+## 17. Rebuilding at a different FDW, or after a tweak
+
+```sh
+./rew_pipeline.py --fdw-cycles 12 --tag fdw12 --output output/fdw12
+```
+
+is the whole of it — a new `--tag` keeps the new run's measurements alongside
+the old ones in REW rather than overwriting them, so both can be inspected
+side by side before choosing. Rerunning the *same* tag (after editing
+`rew_pipeline.toml`, say, to try a different LF-tail slope) replaces that
+run's own measurements in place.
+
+## 18. Quirks the API did not document
+
+Found by testing against this project's own reference build, not written
+down anywhere in the API help:
+
+- **Measurement index numbers shift on every add or delete** (the API docs
+  do say indexing is "NOT recommended" but not why it actually bites): a
+  value captured as an index and used several steps later, after other
+  measurements have been created or removed, can silently refer to the
+  wrong trace. Every reference the script keeps across steps is the
+  measurement's **UUID**, never its index.
+- **`Response copy` does not carry the source's notes** — only its own
+  "Copy of `<title>`" line — so the geometry comments a downstream tool
+  might look for (front-wall/speaker distance, marker colour — §16, R12)
+  have to be copied over explicitly afterward.
+- **`Response copy` does not detach the IR-window/FDW state either.** Taking
+  a "no-FDW" snapshot of a capture *before* enabling FDW on the original,
+  expecting the copy to be unaffected by what happens to the original next,
+  produced a copy that showed FDW enabled anyway once the original was
+  mutated. The fix matches what actually happened in the reference session's
+  own history: build the *entire* chain first with FDW on throughout, and
+  only at the very end — once nothing downstream still needs it — turn FDW
+  off on the original captures and take the snapshot then.
+- **`/measurements/:id/frequency-response` could not be made to return
+  genuinely unsmoothed data** in testing, regardless of a `smoothing=None`
+  query parameter or a `"Smooth"` command with `"None"` issued first — it
+  came back at whatever log-spaced default (1/48 octave, 96 points/octave)
+  the measurement last displayed at in the GUI. Every text export here is
+  therefore computed directly from `/measurements/:id/impulse-response`
+  instead (a plain FFT of the full-length impulse is unsmoothed and
+  linear-spaced by construction), not from that endpoint.
+- **A filter's exported text and its WAV must agree on where t=0 is**, and
+  it is not the buffer start. `new_filter_design.py`'s own residual check
+  only searches for an alignment within 16 samples of the WAV's peak; a
+  text export phase-referenced to the buffer's sample 0 instead of to that
+  peak sample produced a spurious ~104° RMS phase residual — appearing as a
+  data-quality failure — even though the magnitude matched to 0.0002 dB.
+  Referencing phase to the peak sample fixed it to exactly 0.
+
+## R12. Appendix — how the REW API was explored
+
+The API is self-documenting to a useful degree, and every non-obvious
+setting used above was found this way rather than guessed. This section is
+the method, so it is repeatable for whatever the next unfamiliar endpoint
+turns out to be.
+
+**Start with the specification.** `GET /doc.json` on a running instance
+returns the full OpenAPI/Swagger document — every path, every request/
+response schema, by name. For a data model with fields whose meaning is not
+obvious from the prose help at `GET /` (rendered from the same source as
+`localhost:4735`'s own browsable page), the schema in `doc.json` is the
+fastest way to see what a `POST` body can actually contain, for instance:
+
+```json
+"TargetSettings": {
+  "type": "object",
+  "properties": {
+    "shape": {"type": "string"},
+    "bassManagementSlopedBPerOctave": {"type": "integer"},
+    "bassManagementCutoffHz": {"type": "integer"},
+    "lowFreqSlopedBPerOctave": {"type": "integer"},
+    "lowFreqCutoffHz": {"type": "integer"},
+    "lowPassCrossoverType": {"type": "string"},
+    "highPassCrossoverType": {"type": "string"},
+    "lowPassCutoffHz": {"type": "integer"},
+    "highPassCutoffHz": {"type": "integer"}
+  }
+}
+```
+
+That is where **`bassManagementCutoffHz`** and its neighbours were first
+seen — not from any narrative documentation, which never mentions them by
+name — by reading the schema for the object `GET /measurements/:id/
+target-settings` returns. The type only says the field exists and that it is
+an integer; it does not say which `shape` values are valid, or that
+`bassManagementCutoffHz` only matters for some of them.
+
+**Read a live object back before changing it.** `GET
+/measurements/:id/target-settings` on an ordinary loaded measurement
+returned:
+
+```json
+{
+  "shape": "Subwoofer",
+  "bassManagementSlopedBPerOctave": 12,
+  "bassManagementCutoffHz": 80,
+  "lowFreqSlopedBPerOctave": 24,
+  "lowFreqCutoffHz": 10,
+  "lowPassCrossoverType": "L-R2",
+  "highPassCrossoverType": "L-R2",
+  "lowPassCutoffHz": 1000,
+  "highPassCutoffHz": 100
+}
+```
+
+`"Subwoofer"` as the factory-default `shape`, for a full-range two-channel
+target, was the finding that mattered — not something to have assumed, since
+nothing in the prose documentation says what REW's default target shape is
+for a fresh measurement. This is also what made the actual bug visible:
+building a target under this default and running `drc_acceptance.py` against
+the resulting filter showed a materially worse result (§15) than the
+existing reference build, which pointed straight back at this object.
+
+**Let the API's own validation enumerate the choices.** The schema says
+`shape` is a string; it does not say which strings. Rather than search the
+GUI for the exact wording, `POST` a plausible guess and read the error:
+
+```sh
+$ curl -X POST localhost:4735/measurements/<uuid>/target-settings \
+       -d '{"shape": "Flat"}'
+{
+  "message": "Flat is not a valid target shape",
+  "validValues": ["Full range", "Bass limited", "Subwoofer", "Driver", "None"]
+}
+```
+
+REW's API consistently does this: an invalid enum value comes back with the
+complete valid list, so a wrong guess is one request, not a search through
+the GUI or the help pages. The same pattern found the valid `Arithmetic`
+`"function"` strings (`GET /measurements/arithmetic-functions`) and the valid
+smoothing values (`GET /measurements/frequency-response/smoothing-choices`)
+before any POST was needed at all — some endpoints hand you the enumeration
+directly, without needing to trigger a validation error first.
+
+**The FDW is a field on the IR-window object, not a separate endpoint.**
+`GET /measurements/:id/ir-windows` on a capture that already had it enabled
+(one from the reference session, inspected specifically to confirm this)
+returned:
+
+```json
+{
+  "leftWindowType": "Rectangular", "leftWindowWidthms": 500,
+  "rightWindowType": "Rectangular", "rightWindowWidthms": 1000,
+  "refTimems": 0,
+  "addFDW": true, "fdwWidthCycles": 8.0
+}
+```
+
+— confirming both that `addFDW`/`fdwWidthCycles` are the only two fields
+that matter for step 2, and, independently, that this project's own reference
+build really did use exactly 8 cycles and the rectangular 500/1000 ms
+windows Part III's step 2 assumes throughout. Setting the FDW is then one
+`POST` to the same endpoint with just those two fields — the API explicitly
+documents partial objects being accepted by `POST`, so the rectangular
+window fields do not need to be repeated.
+
+**Minimum phase's tail parameters came from the prose help, verified against
+a real object.** Unlike the two above, `/measurements/:id/command` with
+`"Minimum phase version"` *is* documented with a worked example in the HTML
+help (`analysis/rew-api-help.txt` in the project checkout, saved from
+`GET /`), naming `"include cal"`, `"append lf tail"`, `"lf tail start"`,
+`"lf tail slope"` explicitly. What the help does not give is which numbers
+this project's own reference filter actually used — for that,
+`120.green.multipt.FDW8.mdat`'s own measurement *notes* were the source, not
+the API: each `-MP` and `Filter` measurement in that session carries a
+REW-generated note stating its own tail settings verbatim, e.g.
+
+```
+Minimum phase copy of LX
+Cal file effects included
+LF tail from 16 Hz at 12 dB/octave
+No HF tail
+```
+
+read via `GET /measurements/:id` on that specific reference measurement.
+Every "16 Hz @ 12 dB/oct" / "16 Hz @ 0 dB/oct" default in §13's table is
+transcribed from notes like this one, not chosen or guessed — the API only
+had to be asked to *set* the same values back, on a fresh build, once they
+were known.
+
+**When neither the schema nor an error message settles it, test against a
+known-good file.** The one genuinely open question — what phase convention
+a filter's text export must use to satisfy `new_filter_design.py`'s own
+TXT-vs-WAV residual check (§18's last item) — was not answered by any REW
+endpoint at all, because the check lives in the *other* project. It was
+settled by importing `deploy_filter.filter_spectrum` and
+`response_metrics` directly and running them against a real WAV/TXT pair
+at a few candidate delays:
+
+```python
+for delay in [0, 8192, -8192]:
+    ...
+# delay=0            rms_phase_deg = 0.0015   (this script's own convention)
+# delay=8192 (peak)  rms_phase_deg = 0.0000   (what the checker expects)
+# delay=-8192        rms_phase_deg = 104.3
+```
+
+— a one-sample offset either side of the correct value at `8192` already
+produces ~104° of residual (a phase check this sensitive is doing its job:
+one sample at 24 kHz is half a cycle), which is what made the fix
+unambiguous once found.
