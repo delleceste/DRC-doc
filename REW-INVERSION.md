@@ -77,13 +77,13 @@ current one:
   - [R10. Troubleshooting](#r10-troubleshooting)
   - [R11. Glossary](#r11-glossary)
 - [Part V — Automating the procedure](#part-v--automating-the-procedure)
-  - [12. What it does, and does not, do for you](#12-what-it-does-and-does-not-do-for-you)
-  - [13. Input measurements, and the config file](#13-input-measurements-and-the-config-file)
-  - [14. Steps 2–10, one API call each](#14-steps-210-one-api-call-each)
-  - [15. Building the target](#15-building-the-target)
-  - [16. Output files](#16-output-files)
-  - [17. Rebuilding at a different FDW, or after a tweak](#17-rebuilding-at-a-different-fdw-or-after-a-tweak)
-  - [18. Quirks the API did not document](#18-quirks-the-api-did-not-document)
+  - [13. What it does, and does not, do for you](#13-what-it-does-and-does-not-do-for-you)
+  - [14. Input measurements, and the config file](#14-input-measurements-and-the-config-file)
+  - [15. Steps 2–10, one API call each](#15-steps-210-one-api-call-each)
+  - [16. Building the target](#16-building-the-target)
+  - [17. Output files](#17-output-files)
+  - [18. Rebuilding at a different FDW, or after a tweak](#18-rebuilding-at-a-different-fdw-or-after-a-tweak)
+  - [19. Quirks the API did not document](#19-quirks-the-api-did-not-document)
   - [R12. Appendix — how the REW API was explored](#r12-appendix--how-the-rew-api-was-explored)
 
 ---
@@ -3284,7 +3284,7 @@ This part assumes you have read Parts I–IV — it explains where the script's
 defaults come from and what each of its knobs corresponds to in the
 procedure above, not the procedure itself.
 
-## 12. What it does, and does not, do for you
+## 13. What it does, and does not, do for you
 
 **Requires:** REW running with its API enabled (API preferences → *Start the
 API when REW starts*, or launched with `-api`; default port 4735), and the
@@ -3300,13 +3300,13 @@ raw captures already loaded (imported normally, or loaded from a `.mdat` with
   averages;
 - step 4 — minimum phase, first time, cal included;
 - step 5 — builds the target, if one is not already loaded under the
-  configured name (§15);
+  configured name (§16);
 - step 6a — checks the minimum-phase copies preserved `|H|`, and warns if
-  not (§18 has the one case this actually caught);
+  not (§19 has the one case this actually caught);
 - step 7, 8, 9 — the division, minimum phase a second time (cal excluded),
   bakes the crossover in last;
 - step 10 — trims to set latency, exports the filter WAVs and the text
-  responses open-media-drc's deployment tooling needs (§16);
+  responses open-media-drc's deployment tooling needs (§17);
 - step 11 — runs `drc_acceptance.py` on the result and reports pass/fail.
 
 **Does not do for you**, on purpose:
@@ -3315,18 +3315,18 @@ raw captures already loaded (imported normally, or loaded from a `.mdat` with
   these once, by hand, before the captures the script consumes exist; they
   are judgment calls about your own measurement set, not something to
   automate per run.
-- **Choosing a target shape or house curve.** §15 covers what the script
+- **Choosing a target shape or house curve.** §16 covers what the script
   sets on its own, but the actual curve — flat, a house curve, a deliberate
   scoop — is a decision, not a default to compute. Build one by hand in REW
   once and point `--target-title`/`target_title` at it to have every run
-  reuse it, or let the script build the plain default described in §15.
+  reuse it, or let the script build the plain default described in §16.
 - **step 11's actual accept/reject judgment.** The script runs
   `drc_acceptance.py` and reports its verdict; it does not loop over FDW
   cycles or LF-tail slopes looking for a pass. That decision — and the
   re-measurement at more than one position the guide's step 11 also asks
   for — stays with you.
 
-## 13. Input measurements, and the config file
+## 14. Input measurements, and the config file
 
 **Naming convention**, overridable everywhere below: a centre pair `L0`/`R0`,
 optionally 1–4 more position pairs `L1`/`R1` … `L4`/`R4`, each `n` cm off
@@ -3352,7 +3352,7 @@ is a complete, correct run with no other flags.
 | | `sum_c_title` | `--sum-c-title` | a real simultaneous `L0+R0` sweep, if you have one | unset → vector-average |
 | | `x801_title`, `x801_wav` | `--x801-title`, `--x801-wav` | the crossover correction, reused if already loaded, else imported | `X801`, `X801.wav` |
 | `[fdw]` | `cycles` | `--fdw-cycles` | step 2's FDW width | `8.0` |
-| `[target]` | `target_title` | `--target-title` | reused as-is if already loaded; else built (§15) under this name | `Target LR.RMS.AVG` |
+| `[target]` | `target_title` | `--target-title` | reused as-is if already loaded; else built (§16) under this name | `Target LR.RMS.AVG` |
 | | `lf_cutoff_hz`, `lf_slope_db_per_oct` | `--target-lf-cutoff`, `--target-lf-slope` | step 5's target LF cutoff | `10 Hz`, `24 dB/oct` |
 | | `house_curve` | `--house-curve` | a house-curve file (freq/dB pairs, same format as `../DRC-doc/house-curve-*.txt`), loaded before the target is built | unset → flat |
 | | `house_curve_log_interpolation` | `--house-curve-log-interpolation` | REW's own flag, set explicitly since there is no way to read back a prior value | `true` |
@@ -3366,7 +3366,25 @@ Cal file effects (included in minimum phase #1, excluded in #2, R3) and max
 gain (`0.0 dB`, cut-only, throughout §11) are not configurable — the guide's
 reasoning for both is a property of the procedure, not a per-run choice.
 
-## 14. Steps 2–10, one API call each
+### Optional session cleanup
+
+Normal runs reuse an already loaded input session and replace their own
+same-tag results. Two additional CLI-only options allow a clean rebuild:
+
+- `--replace-session` requires `--session PATH`: it deletes all currently
+  loaded REW measurements before loading that session.
+- `--raw-only-session` keeps only the configured raw centre and off-centre
+  L/R captures, plus the simultaneous centre sum if configured. It removes
+  prior targets, filters, arithmetic results and imported X801; the build
+  recreates these from the captures and configured X801 WAV. Locked traces
+  that REW refuses to delete are reported and excluded from the build.
+  Missing required raw inputs cause an error.
+
+Both options are off by default. They modify the loaded REW session, so save
+any work you need before using them. These explicit cleanup options are
+broader than normal same-tag cleanup.
+
+## 15. Steps 2–10, one API call each
 
 The mapping is close to literal — each guide step is one or two REST calls
 per trace, not a reimplementation of what they compute:
@@ -3389,7 +3407,102 @@ runs with different `--tag`s coexist in the same REW session without
 clashing, and a rerun of the *same* tag replaces only its own prior
 measurements — never the raw captures, the target, or `X801`.
 
-## 15. Building the target
+### Optional refinement PEQs: 82 Hz and 530 Hz
+
+The refinement extension adds two configurable, common L/R peaking cuts to
+the inversion. Relative to `DRC-120.green` commit `f4fddf9`, this is new
+behavior in the local pipeline changes documented on 2026-09-13; that
+committed version does not offer these options. The underlying inversion
+bands, target construction and FDW defaults are unchanged.
+
+| Filter | Frequency | Gain | Q | Channels |
+|---|---:|---:|---:|---|
+| Remaining bass peak | 82 Hz | −1.0 dB | 2.0 | Both, identically |
+| Broad upper-bass/lower-midrange peak | 530 Hz | −1.5 dB | 2.0 | Both, identically |
+
+**Off by default.** Enable with `--refinement-peq`, or put this in the
+active TOML config (`rew_pipeline.example.toml` documents the same settings
+with `enabled = false`):
+
+```toml
+[experiments]
+enabled = true
+peq82_frequency_hz = 82.0
+peq82_gain_db = -1.0
+peq82_q = 2.0
+peq530_frequency_hz = 530.0
+peq530_gain_db = -1.5
+peq530_q = 2.0
+```
+
+The corresponding CLI controls are `--peq82-frequency`, `--peq82-gain`,
+`--peq82-q`, `--peq530-frequency`, `--peq530-gain`, and `--peq530-q`.
+Gains must be non-positive and Q must be positive. There is one enable
+switch for both PEQs; setting one gain to `0` makes that cut neutral when
+exporting a single-cut trial. There is currently no `--no-refinement-peq`
+flag: if TOML enables the feature, set `enabled = false` there or select a
+config that leaves it disabled to obtain a baseline run. Supplying PEQ
+parameters alone does not enable the feature.
+
+**When enabled, both cuts are baked into the exported filters.** After
+forming `FL = F.common × Fper_L` and `FR = F.common × Fper_R`, the pipeline
+constructs explicit REW `PK` filter responses and multiplies their combined
+response into both channels:
+
+```
+FL.exp = FL × PEQ.both
+FR.exp = FR × PEQ.both
+        → minimum phase #2 → multiply by X801 → trim → export
+```
+
+Thus the normal `FLX-trimmed-48k.wav` / `FRX-trimmed-48k.wav`, filter text
+exports and `L.filtered` / `R.filtered` / `LR.filtered` predictions include
+both cuts. No additional playback PEQ is required. This added stage also
+applies the 530 Hz cut even though the inversion's upper band edge remains
+225 Hz. It does not change the inversion target or extend the division band.
+
+The supporting `rew_client.py` methods replace the EQ rows on the working
+filter measurements, clear unused rows, read back the requested settings,
+and invoke REW's **Generate filters measurement** command. The response is
+then explicitly cascaded into the correction; it is not merely an EQ-panel
+setting attached to a plot.
+
+For inspection, the enabled run retains these tagged trace families in REW:
+
+- `PEQ.82`, `PEQ.530`, `PEQ.both`: standalone EQ responses.
+- `LFilter.baseline` / `RFilter.baseline`, `FLX.baseline` / `FRX.baseline`,
+  and `FLX-trimmed.baseline` / `FRX-trimmed.baseline`: the correction rebuilt
+  through the same minimum-phase, X801 and trimming steps without either cut.
+- `L.filtered.baseline`, `R.filtered.baseline`, `LR.filtered.baseline`:
+  baseline predictions.
+- `L.filtered.eq82`, `R.filtered.eq82`, `LR.filtered.eq82`, and the matching
+  `.eq530` family: individual-cut predictions, made by multiplying the
+  finished baseline predictions by each standalone PEQ. These are comparison
+  traces, not separately exported single-cut filter builds.
+- The ordinary `L.filtered`, `R.filtered`, `LR.filtered`: the combined
+  candidate used for export.
+
+The manifest records the parameters and comparison UUIDs; `--save-mdat`
+preserves the session for later inspection. To make room for comparisons,
+the enabled run deletes its temporary per-position sum and `LX`/`RX`
+construction traces after their results have been incorporated. Same-tag
+cleanup also recognises the new PEQ and comparison trace names.
+
+For example, from the project checkout, build the FDW6 combined candidate:
+
+```sh
+./rew_pipeline.py --fdw-cycles 6 --refinement-peq \
+  --tag clean-fdw6-peq --output output/clean-fdw6-peq --save-mdat
+```
+
+The existing `output/clean-fdw6-peq/manifest.json` records FDW 6 and both
+cuts at the values above. The active `DRC-120.green/rew_pipeline.toml` at
+this writing has no `[experiments]` section and still selects FDW 8, so a
+normal run enables neither cut. Predictions are calculated from the input
+captures; judging the tonal change still requires listening and acoustic
+verification of the final filters.
+
+## 16. Building the target
 
 Answering directly, since it is the one step with real judgment in it:
 
@@ -3397,7 +3510,7 @@ Answering directly, since it is the one step with real judgment in it:
   "no scoop" option), because a curve is a decision this script should not
   make silently. Pass `--house-curve`/`house_curve` to load one first (REW's
   `/eq/house-curve` endpoint) — `../DRC-doc/house-curve-harman-fuller.txt` is
-  one such file, see §5's "four candidate shapes".
+  one such file, see step 5's "four candidate shapes".
 - **Target level:** yes — `"Calculate target level"`, exactly step 5's "press
   Calculate and let REW set it", run on the RMS average of `LX`/`RX` (the
   same trace step 5 uses).
@@ -3409,7 +3522,7 @@ Answering directly, since it is the one step with real judgment in it:
   `None`) and not REW's own default of `"Subwoofer"`. That default matters:
   it silently attaches a bass-management crossover (REW's
   `TargetSettings.bassManagementCutoffHz`/`bassManagementSlopedBPerOctave`,
-  visible only once you inspect the object — see R12), and a target built
+  visible only once you inspect the object — see R12 below), and a target built
   under it produced a visibly worse filter — sharpest feature Q 12–13
   against a Q ≤ 12 gate, and +11…+24 ms of group delay where the intended
   build shows single-digit ms — until this was found and fixed. Always
@@ -3425,7 +3538,7 @@ you shaped by hand in REW with a deliberate scoop — none of the above runs;
 the script reuses it as-is. That is the intended way to try a non-default
 target shape.
 
-## 16. Output files
+## 17. Output files
 
 Exactly the ten files `open-media-drc`'s `scripts/new_filter_design.py`
 resolves by name (its own `FILTERS_AND_DRC.md` and the `TXT_NAMES` /
@@ -3456,7 +3569,7 @@ anything. A real (non-dry-run) deployment additionally wants the ten files
 and the `.mdat` committed to git and `--mdat <session>.mdat` naming the
 session, both left to you rather than assumed by `rew_pipeline.py`.
 
-## 17. Rebuilding at a different FDW, or after a tweak
+## 18. Rebuilding at a different FDW, or after a tweak
 
 ```sh
 ./rew_pipeline.py --fdw-cycles 12 --tag fdw12 --output output/fdw12
@@ -3468,7 +3581,7 @@ side by side before choosing. Rerunning the *same* tag (after editing
 `rew_pipeline.toml`, say, to try a different LF-tail slope) replaces that
 run's own measurements in place.
 
-## 18. Quirks the API did not document
+## 19. Quirks the API did not document
 
 Found by testing against this project's own reference build, not written
 down anywhere in the API help:
@@ -3481,7 +3594,7 @@ down anywhere in the API help:
   measurement's **UUID**, never its index.
 - **`Response copy` does not carry the source's notes** — only its own
   "Copy of `<title>`" line — so the geometry comments a downstream tool
-  might look for (front-wall/speaker distance, marker colour — §16, R12)
+  might look for (front-wall/speaker distance, marker colour — §17, R12)
   have to be copied over explicitly afterward.
 - **`Response copy` does not detach the IR-window/FDW state either.** Taking
   a "no-FDW" snapshot of a capture *before* enabling FDW on the original,
@@ -3568,7 +3681,7 @@ target, was the finding that mattered — not something to have assumed, since
 nothing in the prose documentation says what REW's default target shape is
 for a fresh measurement. This is also what made the actual bug visible:
 building a target under this default and running `drc_acceptance.py` against
-the resulting filter showed a materially worse result (§15) than the
+the resulting filter showed a materially worse result (§16) than the
 existing reference build, which pointed straight back at this object.
 
 **Let the API's own validation enumerate the choices.** The schema says
@@ -3633,7 +3746,7 @@ No HF tail
 ```
 
 read via `GET /measurements/:id` on that specific reference measurement.
-Every "16 Hz @ 12 dB/oct" / "16 Hz @ 0 dB/oct" default in §13's table is
+Every "16 Hz @ 12 dB/oct" / "16 Hz @ 0 dB/oct" default in §14's table is
 transcribed from notes like this one, not chosen or guessed — the API only
 had to be asked to *set* the same values back, on a fresh build, once they
 were known.
@@ -3641,7 +3754,7 @@ were known.
 **When neither the schema nor an error message settles it, test against a
 known-good file.** The one genuinely open question — what phase convention
 a filter's text export must use to satisfy `new_filter_design.py`'s own
-TXT-vs-WAV residual check (§18's last item) — was not answered by any REW
+TXT-vs-WAV residual check (§19's last item) — was not answered by any REW
 endpoint at all, because the check lives in the *other* project. It was
 settled by importing `deploy_filter.filter_spectrum` and
 `response_metrics` directly and running them against a real WAV/TXT pair
