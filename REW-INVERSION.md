@@ -20,8 +20,7 @@ documented here.
 
 This is a **procedure**, not a lab notebook. Every number in it has been
 measured, but the measurements, the false starts and the corrections live in
-`NOTES.md`; nothing of that is repeated here. If a statement here disagrees
-with `NOTES.md`, this document is the later one and wins.
+The working history is not repeated here; this document is the current procedural reference.
 
 **Scope.** Producing a pair of FIR room-correction filters for a stereo pair,
 in REW, by **inverting the measured response** — as opposed to fitting
@@ -566,7 +565,7 @@ conversion is exact and worth memorising:
 | ~9 cycles | 1/9 | 1/6 octave |
 | ~4.3 cycles | 1/4.3 | 1/3 octave |
 
-![The FDW in time, in frequency, and applied to the measurement](fig-fdw.png)
+![The FDW in time, in frequency, and applied to the measurement](figures/rew-inversion/fig-fdw.png)
 
 **(a)** the FDW is not one window but a *family*, one per frequency, of width
 N/f — at 12 cycles that is 480 ms at 25 Hz, 240 ms at 50 Hz, 60 ms at 200 Hz.
@@ -837,7 +836,7 @@ filter does to it: nothing. Moving it at one point moves it somewhere else.
 first reflection points acts on it at every seat, which no EQ can. On this
 geometry two front-wall screens delivered −2.0 dB over 355 – 710 Hz at
 roughly 5σ against head movement, and the intervention was judged
-under-dosed; see `../DRC-120.blue/NOTES.md`, 2026-08-28.
+under-dosed; see the dated measurement notes for that build.
 
 One caveat left open. The valley bottoms at 303 – 345 Hz, which is the N801's
 woofer-to-midrange crossover at 350 Hz. If part of it were the crossover sum
@@ -917,7 +916,7 @@ and **the cut-only clamp engages by itself**. The deep-bass trim at 20–31.5 Hz
 survives intact. This is the whole technique: give the division a divisor that
 knows about the cancellation, and the existing guard does the rest.
 
-![Why the divisor must be the sum below 80 Hz](fig-common-bass.png)
+![Why the divisor must be the sum below 80 Hz](figures/rew-inversion/fig-common-bass.png)
 
 ### Where 80 Hz comes from
 
@@ -1197,14 +1196,14 @@ be worth chasing, and localisation does depend on it.
 
 # Part III — The procedure
 
-![The REW inversion chain](fig-chain.png)
+![The REW inversion chain](figures/rew-inversion/fig-chain.png)
 
 Eleven steps build and accept the filter (the diagram folds 10 and 11 into one
 box). Steps 1 to 3 turn ten sweeps into the three traces everything else
 divides by; steps 4 to 11 are the same whether you measured one position or
 five. A twelfth, [step 12](#step-12--prepare-the-export-bundle-for-open-media-drc),
 follows once step 11 accepts: preparing the export directory
-`DEPLOYMENT.md` and open-media-drc's installer both expect.
+the open-media-drc deployment documentation and installer both expect.
 
 **Where the actions live.** In V5.40 beta, select the traces you want in the
 **All SPL** legend, then right-click the graph: `Align SPL...`,
@@ -1297,7 +1296,7 @@ its full version; read that if a line here doesn't make sense yet.
    response, so correction doesn't pull the stereo image.
    `RMS average` `LX`/`RX` → `L-R RMS average`. Open it in the **EQ
    window**; load a house curve there if you want one (no scoop if the
-   room already runs full — `house-curve-harman-fuller.txt`). Press
+   room already runs full — `tools/housecurve/house-curve-harman-fuller.txt`). Press
    **`Calculate`** to set the target level from that response — REW
    anchors it to the speaker's midrange, which is the number to check it
    against, not the neighbouring bass. Move the target's LF cutoff to
@@ -1340,10 +1339,10 @@ its full version; read that if a line here doesn't make sense yet.
     The numeric form of "will the woofers keep moving after the music
     stops?" (§4's Δf·Δt trade-off, made concrete) — the one check that
     catches what a magnitude plot cannot show at all (R8's worked example).
-    `drc_acceptance.py` on both channels. Fails → back to step 2, not a
+    `tools/drc_acceptance.py` on both channels. Fails → back to step 2, not a
     post-process patch on the WAV.
 12. **[Prepare the export bundle](#step-12--prepare-the-export-bundle-for-open-media-drc).**
-    Ten files, condensed from `DEPLOYMENT.md`. The one to get right: `L`/`R`
+    Ten files, matching open-media-drc's deployment/provenance requirements. The one to get right: `L`/`R`
     still carry step 2's FDW at this point — `L.txt`/`R.txt`/`LR.txt` must
     instead come from **unwindowed duplicates** (untick FDW, re-export),
     because open-media-drc's own automated check only catches REW's
@@ -2423,8 +2422,8 @@ against 8.6 dB now), which is amplifier gain, not excursion.
 > (~+4 to +5 dB), flat mids, no dip. It gives up some of C's un-masking
 > "balance" for a fuller, more forgiving low mid, and it is the right choice
 > when the spatially-averaged room is already close to neutral (deep-vs-upper
-> within ~2 dB). `housecurve.py` writes it as `house-curve-harman.txt` (+4) and
-> `house-curve-harman-fuller.txt` (+5); the 120.blue multi-point build uses the
+> within ~2 dB). `tools/housecurve/housecurve.py` writes it as `tools/housecurve/house-curve-harman.txt` (+4) and
+> `tools/housecurve/house-curve-harman-fuller.txt` (+5); the 120.blue multi-point build uses the
 > +5. The file carries a −1 dB/oct treble tilt for REW's target-level calc only
 > — the filter is unity above 225 Hz, so the tilt is not delivered.
 
@@ -2536,7 +2535,7 @@ Name it `Fcommon`. There is only one, shared by both channels.
 > The **20 Hz** lower limit above is the default and correct starting point.
 > But it sits close to [step 4](#step-4--minimum-phase-first-time)'s
 > minimum-phase LF-tail corner — see that step's "corner's distance from the
-> band edge" callout for the mechanism. If `drc_acceptance.py` fails the group-delay excursion
+> band edge" callout for the mechanism. If `tools/drc_acceptance.py` fails the group-delay excursion
 > test just above 20 Hz, the fix that touches only this step is: **raise this
 > lower limit to 25 Hz** (band-limit blend is centred on the limit, so 21 Hz
 > only fades in ~75 %, but it trims the excursion). Measured on the
@@ -2810,7 +2809,7 @@ produces ripple.
 **Do:**
 
 ```sh
-./drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav \
+./tools/drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav \
                     ../DRC-120.blue/FRX-trimmed-48k.wav --plot check.png
 ```
 
@@ -2824,7 +2823,7 @@ lower the FDW cycles, and re-run the chain from step 3. A filter that fails thes
 ### Step 12 — Prepare the export bundle for open-media-drc
 
 **This is the condensed version.** `../open-media-drc/doc/FILTER_PROVENANCE_AND_RESPONSE.md`
-and `DEPLOYMENT.md` (here) are the reference — read one of those for the
+and the open-media-drc provenance documentation is the reference — read it for the
 declare/tag/build/publish chain that comes after this step. This step is
 only about getting the **export directory** into the shape that chain, or
 the web UI's live installer, requires. Nothing below opens BruteFIR or
@@ -2843,7 +2842,7 @@ touches a deployed room; it is still REW work.
 | `LR.filtered.txt` | the filtered pair | built here, `Vector average` of the two above |
 
 Pick **one** aggregate convention and hold it: `LR` throughout, never mixed
-with `L+R.txt`/`L+R.filtered.txt`. `DEPLOYMENT.md` §4.1 confirms this
+with `L+R.txt`/`L+R.filtered.txt`. the open-media-drc provenance documentation confirms this
 explicitly — *"for a filter built by this guide's procedure it is
 `vector_average`: step 3c forms the vector `L + R` and then subtracts
 6.0206 dB, which is `(L + R) / 2`."* A design that mixes `LR` with `L+R`
@@ -2914,7 +2913,7 @@ measuring different things.
    rather than in a refusal message.
 
    ```sh
-   ./drc_export_preflight.py ../DRC-120.green/120.green.multipt.txts
+   ./tools/drc_export_preflight.py ../DRC-120.green/120.green.multipt.txts
    ```
 
    Run it on the export directory. It mirrors `new_filter_design.py`'s own
@@ -2933,7 +2932,7 @@ measuring different things.
    it.
 7. **Commit.** The export directory must be a Git work tree, and all ten
    files plus the `.mdat` must be committed — not merely staged — before
-   deployment can read them back later. See `DEPLOYMENT.md` §4 for what
+   deployment can read them back later. See the current open-media-drc provenance documentation for what comes next: declare the roles, tag, build, publish.
    comes next: declare the roles, tag, build, publish.
 
 ---
@@ -3000,7 +2999,7 @@ resolution would no longer describe the data.
 Only relevant on route B. Read it anyway — it explains why route A avoids the
 question.
 
-![Window shapes in time, their frequency kernels, and the effect on the real measurement](fig-window-shapes.png)
+![Window shapes in time, their frequency kernels, and the effect on the real measurement](figures/rew-inversion/fig-window-shapes.png)
 
 **(a)** six shapes as REW applies them. **(b)** the same six in frequency —
 **this is the smoothing kernel** the response gets convolved with. **(c)** each
@@ -3285,11 +3284,11 @@ refinement, not a defect.
 
 ## R8. Acceptance tests
 
-**`drc_acceptance.py`**, in this directory. Run it on the WAV BruteFIR
+**`tools/drc_acceptance.py`**, in this directory. Run it on the WAV BruteFIR
 actually loads. Exit status 0 = pass.
 
 ```sh
-./drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav \
+./tools/drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav \
                     ../DRC-120.blue/FRX-trimmed-48k.wav --plot check.png
 ```
 
@@ -3669,8 +3668,8 @@ frequency above which a single-point measurement starts to mean something.
 # Part V — Automating the procedure
 
 Everything in Parts I–IV describes doing the eleven steps by hand, in the
-REW GUI. `rew_pipeline.py` (in a project checkout beside this document, e.g.
-`../DRC-120.green/`) does the same eleven steps by driving REW's own REST
+REW GUI. `tools/rew-pipeline/rew_pipeline.py` (in this documentation/tooling
+repository) does the same eleven steps by driving REW's own REST
 API — the same commands a person would trigger from a menu, issued over
 HTTP instead of a click. It does not reimplement the FDW window, the
 minimum-phase transform, or the divide; it asks the running REW instance to
@@ -3708,7 +3707,7 @@ raw captures already loaded (imported normally, or loaded from a `.mdat` with
   bakes the crossover in last;
 - step 10 — trims to set latency, exports the filter WAVs and the text
   responses open-media-drc's deployment tooling needs (§17);
-- step 11 — runs `drc_acceptance.py` on the result and reports pass/fail.
+- step 11 — runs `tools/drc_acceptance.py` on the result and reports pass/fail.
 
 **Does not do for you**, on purpose:
 
@@ -3722,7 +3721,7 @@ raw captures already loaded (imported normally, or loaded from a `.mdat` with
   once and point `--target-title`/`target_title` at it to have every run
   reuse it, or let the script build the plain default described in §16.
 - **step 11's actual accept/reject judgment.** The script runs
-  `drc_acceptance.py` and reports its verdict; it does not loop over FDW
+  `tools/drc_acceptance.py` and reports its verdict; it does not loop over FDW
   cycles or LF-tail slopes looking for a pass. That decision — and the
   re-measurement at more than one position the guide's step 11 also asks
   for — stays with you.
@@ -3736,13 +3735,16 @@ centre mono sum (3c), normalised `-6.0206 dB` automatically; otherwise the
 centre sum is `L0` vector-averaged with `R0`, same as every other position.
 
 **Config file.** Every DSP flag lives in one TOML file instead of a long
-command line: copy `rew_pipeline.example.toml` to `rew_pipeline.toml` (loaded
+command line: copy
+`../DRC-doc/tools/rew-pipeline/rew_pipeline.example.toml` into the project as
+`rew_pipeline.toml` (loaded
 automatically if present) or pass `--config some-file.toml`. A command-line
 flag always overrides the file; a key simply absent from the file falls back
 to the script's own built-in default — there is no separate "not set" value
 to get wrong. This project's own `rew_pipeline.toml` carries its actual
 measurement titles (`L.0`/`R.0`/`L 120.green.{n}`, not the generic
-`L0`/`L{n}`), so a plain `./rew_pipeline.py --tag fdw8 --output output/fdw8`
+`L0`/`L{n}`), so, when run from that project directory, a plain
+`../DRC-doc/tools/rew-pipeline/rew_pipeline.py --tag fdw8 --output output/fdw8`
 is a complete, correct run with no other flags.
 
 | `.toml` table | key | script flag | meaning | default |
@@ -3755,7 +3757,7 @@ is a complete, correct run with no other flags.
 | `[fdw]` | `cycles` | `--fdw-cycles` | step 2's FDW width | `8.0` |
 | `[target]` | `target_title` | `--target-title` | reused as-is if already loaded; else built (§16) under this name | `Target LR.RMS.AVG` |
 | | `lf_cutoff_hz`, `lf_slope_db_per_oct` | `--target-lf-cutoff`, `--target-lf-slope` | step 5's target LF cutoff | `10 Hz`, `24 dB/oct` |
-| | `house_curve` | `--house-curve` | a house-curve file (freq/dB pairs, same format as `../DRC-doc/house-curve-*.txt`), loaded before the target is built | unset → flat |
+| | `house_curve` | `--house-curve` | a house-curve file (freq/dB pairs, same format as `../DRC-doc/tools/housecurve/house-curve-*.txt`), loaded before the target is built | unset → flat |
 | | `house_curve_log_interpolation` | `--house-curve-log-interpolation` | REW's own flag, set explicitly since there is no way to read back a prior value | `true` |
 | `[minphase1]` | `lf_tail_corner_hz`, `lf_tail_slope_db_per_oct` | `--lf1-corner`, `--lf1-slope` | step 4's LF tail | `16 Hz`, `12 dB/oct` |
 | | `hf_tail_corner_hz`, `hf_tail_slope_db_per_oct`, `hf_tail_frequency_warping` | `--hf1-corner`, `--hf1-slope`, `--hf1-warping` | step 4's HF tail | unset → off |
@@ -3892,7 +3894,7 @@ cleanup also recognises the new PEQ and comparison trace names.
 For example, from the project checkout, build the FDW6 combined candidate:
 
 ```sh
-./rew_pipeline.py --fdw-cycles 6 --refinement-peq \
+../DRC-doc/tools/rew-pipeline/rew_pipeline.py --fdw-cycles 6 --refinement-peq \
   --tag clean-fdw6-peq --output output/clean-fdw6-peq --save-mdat
 ```
 
@@ -3910,7 +3912,7 @@ Answering directly, since it is the one step with real judgment in it:
 - **House curve:** none, by default — the built target is flat (step 5's
   "no scoop" option), because a curve is a decision this script should not
   make silently. Pass `--house-curve`/`house_curve` to load one first (REW's
-  `/eq/house-curve` endpoint) — `../DRC-doc/house-curve-harman-fuller.txt` is
+  `/eq/house-curve` endpoint) — `../DRC-doc/tools/housecurve/house-curve-harman-fuller.txt` is
   one such file, see step 5's "four candidate shapes".
 - **Target level:** yes — `"Calculate target level"`, exactly step 5's "press
   Calculate and let REW set it", run on the RMS average of `LX`/`RX` (the
@@ -3954,7 +3956,7 @@ L.filtered.txt   R.filtered.txt   LR.filtered.txt   raw (no-FDW) capture x filte
 ```
 
 plus `manifest.json` (every parameter and measurement UUID from the run) and
-`acceptance.txt` (`drc_acceptance.py`'s own output) — both ignored by
+`acceptance.txt` (`tools/drc_acceptance.py`'s own output) — both ignored by
 `new_filter_design.py`, which matches files by name and does not mind extras.
 Deliberately **not** exported: a text trace for every intermediate
 measurement the pipeline builds (`LX`, `LX-MP`, `F.common`, …) — those stay
@@ -3973,7 +3975,7 @@ session, both left to you rather than assumed by `rew_pipeline.py`.
 ## 18. Rebuilding at a different FDW, or after a tweak
 
 ```sh
-./rew_pipeline.py --fdw-cycles 12 --tag fdw12 --output output/fdw12
+../DRC-doc/tools/rew-pipeline/rew_pipeline.py --fdw-cycles 12 --tag fdw12 --output output/fdw12
 ```
 
 is the whole of it — a new `--tag` keeps the new run's measurements alongside
@@ -4081,7 +4083,7 @@ returned:
 target, was the finding that mattered — not something to have assumed, since
 nothing in the prose documentation says what REW's default target shape is
 for a fresh measurement. This is also what made the actual bug visible:
-building a target under this default and running `drc_acceptance.py` against
+building a target under this default and running `tools/drc_acceptance.py` against
 the resulting filter showed a materially worse result (§16) than the
 existing reference build, which pointed straight back at this object.
 

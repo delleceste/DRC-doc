@@ -13,6 +13,10 @@ is meant to make obvious:
 Mathtext is avoided in the box labels: pdflatex renders the PNG as-is, and
 mathtext put visible gaps around the periods in './drc_acceptance.py'.
 """
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -176,6 +180,6 @@ ax.text(XC, -0.95, 'Combine L with R only within a position (vector average); '
         'combine different positions only with RMS average.',
         ha='center', va='center', fontsize=7.7, color=MUTED, style='italic')
 
-fig.savefig('fig-chain.png', dpi=150, facecolor='white',
+fig.savefig(HERE / 'fig-chain.png', dpi=150, facecolor='white',
             bbox_inches='tight', pad_inches=0.20)
 print('wrote fig-chain.png')

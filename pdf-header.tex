@@ -1,7 +1,7 @@
-% Preamble for building NOTES.pdf with pandoc + pdflatex (no xelatex here).
-% pdflatex has no native Unicode, so every non-ASCII glyph used in NOTES.md is
+% Preamble for building REW-INVERSION.pdf with pandoc + pdflatex (no xelatex here).
+% pdflatex has no native Unicode, so every non-ASCII glyph used in REW-INVERSION.md is
 % mapped explicitly below.  Regenerate the list with:
-%   python3 -c "import collections;s=open('NOTES.md').read();print(sorted({c for c in s if ord(c)>127}))"
+%   python3 -c "import collections;s=open('REW-INVERSION.md').read();print(sorted({c for c in s if ord(c)>127}))"
 \usepackage{amsmath,amssymb}
 \usepackage{newunicodechar}
 \usepackage{etoolbox}

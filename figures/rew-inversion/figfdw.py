@@ -1,8 +1,15 @@
+from pathlib import Path
+import sys
+
+HERE = Path(__file__).resolve().parent
+DOC = HERE.parents[1]
+sys.path.insert(0, str(DOC))
+
 import numpy as np, rewio as R, matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 FS=48000.0; N=131072
-D='/home/giacomo/devel/DRC/DRC-120.blue/'
+D = str(DOC.parent / 'DRC-120.blue') + '/'
 H0=R.spec_from_fr(D+'LEFT-measured.csv'); f=np.fft.rfftfreq(N,1/FS)
 h0=np.fft.irfft(H0,N); h0=np.roll(h0,-int(np.argmax(np.abs(h0))))
 t=((np.arange(N)+N//2)%N-N//2)/FS                      # centred time axis
@@ -53,7 +60,7 @@ ax[2].set_xlabel('Hz'); ax[2].set_ylabel('SPL (dB)')
 ax[2].set_title('(c) L.120.Blue through the FDW. 12 cycles keeps the modes and refuses the razor null')
 ax[2].grid(alpha=.3,which='both'); ax[2].legend(fontsize=9)
 plt.tight_layout()
-plt.savefig('fig-fdw.png',dpi=105)
+plt.savefig(HERE / 'fig-fdw.png', dpi=105)
 print('written')
 
 # --- quantitative: window width and longest representable decay ---

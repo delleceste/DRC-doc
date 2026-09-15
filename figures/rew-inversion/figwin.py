@@ -1,8 +1,15 @@
+from pathlib import Path
+import sys
+
+HERE = Path(__file__).resolve().parent
+DOC = HERE.parents[1]
+sys.path.insert(0, str(DOC))
+
 import numpy as np, rewio as R, matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 FS=48000.0; N=131072; f=np.fft.rfftfreq(N,1/FS)
-D='/home/giacomo/devel/DRC/DRC-120.blue/'
+D = str(DOC.parent / 'DRC-120.blue') + '/'
 
 # real measured IR (L.120.Blue, unsmoothed)
 H0=R.spec_from_fr(D+'LEFT-measured.csv')
@@ -63,7 +70,7 @@ ax[2].set_xlabel('Hz'); ax[2].set_ylabel('SPL (dB)')
 ax[2].set_title('(c) The consequence on the real measurement (L.120.Blue), 173 ms window')
 ax[2].grid(alpha=.3); ax[2].legend(fontsize=8,ncol=3)
 plt.tight_layout()
-plt.savefig('fig-window-shapes.png',dpi=105)
+plt.savefig(HERE / 'fig-window-shapes.png', dpi=105)
 
 print('%-18s %14s %18s'%('shape','-3dB width (Hz)','worst sidelobe (dB)'))
 for s,bw,sl in stats: print('%-18s %14.2f %18.1f'%(s,bw,sl))

@@ -17,13 +17,16 @@ in ../DRC-120.blue/120.blue.Rscreen.txts/:
 Panel (c) needs no complex algebra: below 80 Hz both channels receive the
 same filter, so the sum transforms exactly as |sum'| = |sum| + Fcommon(dB).
 """
+from pathlib import Path
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, NullFormatter
 
-D = '../DRC-120.blue/120.blue.Rscreen.txts/'
+HERE = Path(__file__).resolve().parent
+D = str(HERE.parents[1] / 'DRC-120.blue' / '120.blue.Rscreen.txts') + '/'
 
 
 def load(path):
@@ -130,7 +133,7 @@ for a in ax:
     a.xaxis.set_major_formatter(lambda x, _: '%g' % x)
 
 fig.tight_layout()
-fig.savefig('fig-common-bass.png')
+fig.savefig(HERE / 'fig-common-bass.png')
 print('wrote fig-common-bass.png')
 
 # --- the numbers quoted in the text ----------------------------------------

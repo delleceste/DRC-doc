@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build a PDF from one of the markdown documents in this directory.
 #
-#   ./make-pdf.sh              -> NOTES.pdf        (default)
+#   ./make-pdf.sh              -> REW-INVERSION.pdf (default)
 #   ./make-pdf.sh REW-INVERSION.md -> REW-INVERSION.pdf
 #
 # Needs pandoc and pdflatex.  There is no xelatex on this machine, so the
@@ -12,19 +12,21 @@
 set -e
 cd "$(dirname "$0")"
 
-SRC=${1:-NOTES.md}
+SRC=${1:-REW-INVERSION.md}
 OUT="${SRC%.md}.pdf"
 
 case "$SRC" in
-    NOTES.md)         TITLE="Room correction working notes — history and retractions" ;;
+
     REW-INVERSION.md) TITLE="Room correction by inversion in REW — a step-by-step guide" ;;
     SUBWOOFER-INTEGRATION.md) TITLE="Subwoofer integration under a single-DAC constraint" ;;
+    room/GIK-SCREEN-PANEL-PLACEMENT-120cm.md) TITLE="GIK ScreenPanel placement — 120 cm configuration" ;;
     *)                TITLE="${SRC%.md}" ;;
 esac
 
 pandoc "$SRC" \
     -o "$OUT" \
     --from=markdown+gfm_auto_identifiers \
+    --resource-path="$(dirname "$SRC"):." \
     --pdf-engine=pdflatex \
     --include-in-header=pdf-header.tex \
     --toc --toc-depth=3 \

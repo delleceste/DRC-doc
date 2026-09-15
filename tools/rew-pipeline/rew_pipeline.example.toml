@@ -1,0 +1,99 @@
+# rew_pipeline.py config -- every value here is also a command-line flag;
+# the command line always wins. Delete a key (or the whole file) to fall
+# back to the script's own built-in default, shown in each comment below.
+# Copy this file to rew_pipeline.toml (picked up automatically, no --config
+# needed) or pass --config some-other-name.toml.
+#
+# See ../REW-INVERSION.md, "Part V -- Automating the procedure",
+# for what each of these controls and why its default is what it is.
+
+[measurements]
+# Input naming convention: a centre pair, plus 0-4 more position pairs
+# {n} cm off-centre. Override these to match whatever your REW session
+# actually calls its measurements -- see the worked example in the guide
+# for this project's own titles ("L.0"/"L 120.green.{n}").
+center_l = "L0"
+center_r = "R0"
+pos_l_pattern = "L{n}"          # {n} = 1..num_positions
+pos_r_pattern = "R{n}"
+num_positions = 4               # 0-4
+
+# A real simultaneous L+R sweep at centre, e.g. "L0+R0" -- used as the
+# centre mono sum if present (normalised -6.0206 dB per REW-INVERSION.md
+# 3c). Leave unset (comment out) to fall back to vector-average(L0, R0),
+# same as every other position.
+# sum_c_title = "L0+R0"
+
+x801_title = "X801"             # the crossover-correction measurement to reuse
+x801_wav = "X801.wav"           # imported from here only if x801_title isn't already loaded
+x801_spl_offset_db = 3.0         # REW imports at 120 dB: Add SPL offset -117 dB
+x801_window_type = "Tukey 0.25" # reference session; controls inherited final trim
+x801_left_window_ms = 100.0
+x801_right_window_ms = 500.0
+
+[fdw]
+cycles = 8.0                    # step 2: narrower = less regularisation, see REW-INVERSION.md S8
+
+[target]
+# Reused as-is if already loaded in REW (e.g. hand-tuned) -- everything
+# else in this section is ignored when that happens. Otherwise built fresh
+# from LX/RX RMS average: REW's "Calculate target level", target shape
+# "Full range" (REW's own default, "Subwoofer", bakes in a bass-management
+# crossover and must not be used -- see the guide), then "Generate target
+# measurement".
+target_title = "Target LR.RMS.AVG"
+lf_cutoff_hz = 10.0             # REW-INVERSION.md S5: move it below the correction band
+lf_slope_db_per_oct = 24.0
+# house_curve = "../DRC-doc/tools/housecurve/house-curve-harman-fuller.txt"   # unset = flat, REW's own default
+house_curve_log_interpolation = true   # set explicitly -- the API has no way to read back a prior value
+
+[minphase1]
+# Step 4: LX, RX, SUM-SP -> LX-MP, RX-MP, SUM-SP-MP. Cal file effects are
+# always included here (not configurable -- REW-INVERSION.md S4 explains
+# why: this models the acoustic response as measured).
+lf_tail_corner_hz = 16.0
+lf_tail_slope_db_per_oct = 12.0
+# hf_tail_corner_hz = 15000      # unset = no HF tail (the guide's default; see S4)
+hf_tail_slope_db_per_oct = -18.0
+hf_tail_frequency_warping = false
+
+[minphase2]
+# Step 8: FL, FR -> LFilter, RFilter. Cal file effects are always excluded
+# here (not configurable -- a filter has no microphone).
+lf_tail_corner_hz = 16.0
+lf_tail_slope_db_per_oct = 0.0
+# hf_tail_corner_hz = 15000
+hf_tail_slope_db_per_oct = -18.0
+hf_tail_frequency_warping = false
+
+[minphase]
+replicate_data = false          # REW's flag for whichever tail (LF or HF) is disabled
+
+[division]
+# Step 7: common filter below common_split, per-channel above it, both
+# max-gain-0-dB (cut only, not configurable -- see REW-INVERSION.md S11).
+common_low_hz = 25.0
+common_split_hz = 80.0
+upper_hz = 225.0
+
+[experiments]
+# Optional broad, common L/R cuts retained alongside the baseline and each
+# individual variant in REW. The deployable output contains both when enabled.
+enabled = false
+peq82_frequency_hz = 82.0
+peq82_gain_db = -1.0
+peq82_q = 2.0
+peq530_frequency_hz = 530.0
+peq530_gain_db = -1.5
+peq530_q = 2.0
+
+[export]
+# What the finished design is called on disk, and therefore how
+# open-media-drc's importer reads it back: --output/DRC-<geometry>/ holds
+# <name>.txts beside <name>.mdat, geometry comes off the project directory
+# and the design ID is whatever follows it in <name>. Both default from the
+# project directory's own name and --tag; set them here only if this
+# directory is not named DRC-<room>, or the design should be filed under an
+# ID that is not the tag (a date, say).
+# geometry = "120.green"          # default: this directory, minus a DRC- prefix
+# name = "120.green.rscreen-20260812"   # default: <geometry>.<tag>

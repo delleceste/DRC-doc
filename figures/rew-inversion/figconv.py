@@ -5,12 +5,19 @@ A third panel (band-limited filter decay) was dropped: at 28.7 Hz it was
 contaminated by circular wrap-around of the 2731 ms filter and by the analysis
 band-filter's own ringing, i.e. exactly the uncontrolled measurement that
 produced §18's original error."""
+from pathlib import Path
+import sys
+
+HERE = Path(__file__).resolve().parent
+DOC = HERE.parents[1]
+sys.path.insert(0, str(DOC))
+
 import numpy as np, rewio as R, matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.signal import fftconvolve, hilbert
 FS=48000.0; N=131072
-D='/home/giacomo/devel/DRC/DRC-120.blue/'
+D = str(DOC.parent / 'DRC-120.blue') + '/'
 
 fig,ax=plt.subplots(2,1,figsize=(11,8))
 
@@ -69,5 +76,5 @@ ax[1].set_xlabel('ms relative to the note stopping'); ax[1].set_ylabel('dB re st
 ax[1].set_title('(b) The same sum, 28.7 Hz: the output keeps summing contributions long after the input stopped')
 ax[1].grid(alpha=.3); ax[1].legend(fontsize=9)
 
-plt.tight_layout(); plt.savefig('fig-convolution.png',dpi=105)
+plt.tight_layout(); plt.savefig(HERE / 'fig-convolution.png', dpi=105)
 print('written')

@@ -230,7 +230,7 @@ transformation.
 
 This matches the earlier material argument: foam and GIK treatment may look
 geometrically symmetric, but they are spectrally very different in the
-125-500 Hz band. See the [previous treatment arithmetic](NOTES.md).
+125-500 Hz band. See the the earlier treatment arithmetic.
 
 ### 5.2 The S3 reflection path
 

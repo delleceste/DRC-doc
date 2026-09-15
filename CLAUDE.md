@@ -30,23 +30,13 @@ paths* below.
 
 - **`REW-INVERSION.md`** — the procedure. Clean, no history, no retractions.
   Its worked example is the 120 cm configuration, but the procedure is general.
-- **`NOTES.md`** — the history *and* the retractions, through 2026-08-18.
-- **`DEPLOYMENT.md`** — what happens after the guide's step 11: `REW2raw`, the
-  rate scale, headroom, and the declaration/annotated-tag/deploy chain that
-  publishes into `~/devel/omdrc-801N`. The guide's step 12 is the condensed
-  version of it.
 - **`SUBWOOFER-INTEGRATION.md`** — the sub analysis, added 2026-08-13.
-- **`GIK-SCREEN-PANEL-PLACEMENT-120cm.md`** — the completed 120 cm study of
+- **`room/GIK-SCREEN-PANEL-PLACEMENT-120cm.md`** — the completed 120 cm study of
   first-reflection geometry and the right-side panel reorder.
-- **`MANUAL.md`** — `allpass_tool.py` user manual. Finished reference.
-- **`HANDOFF.md`** — resuming on another machine; the environment traps.
 
 Do not let the working notes bleed into the guide; that separation is
-deliberate. The guide is clean *because* the retractions are in `NOTES.md`,
-which is why the two travel together and must stay in the same repo.
+deliberate. The guide is the current procedural reference; historical working notes are not part of this repository.
 
-Forward, geometry-specific working notes are written in that geometry's own
-notes: `../DRC-185/NOTES.md`, `../DRC-120.blue/NOTES.md`. A completed,
 self-contained study may live here when its filename identifies the geometry,
 it keeps the measurements in their geometry repository, and its scripts read
 them through an explicit cross-repository path.
@@ -54,7 +44,7 @@ them through an explicit cross-repository path.
 ## Claude skill
 
 `.claude/skills/rew-inversion-audit/SKILL.md` — audits REW inversion-method
-exports (the `<geometry>.multipt.txts/` trees) and `drc_acceptance.py`
+exports (the `<geometry>.multipt.txts/` trees) and `tools/drc_acceptance.py`
 output against this repo's own procedure (`REW-INVERSION.md`'s 11 steps and
 `R1`–`R11`), knows the open-media-drc/BruteFIR/MPD/virtual_oss/alsa
 ecosystem, and carries remediation guidance (e.g. when reducing FDW cycles
@@ -66,7 +56,7 @@ or "why did the acceptance test fail", or invoke directly with
 ## Building the PDFs
 
 ```sh
-./make-pdf.sh REW-INVERSION.md          # default target is NOTES.md
+./make-pdf.sh REW-INVERSION.md          # default target is REW-INVERSION.md
 ```
 
 Three traps, all hit more than once:
@@ -89,7 +79,7 @@ exactly why trap 2 exists.
 ## Verifying a filter
 
 ```sh
-python3 drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav
+python3 tools/drc_acceptance.py ../DRC-120.blue/FLX-trimmed-48k.wav
 ```
 
 Three tests: sharpest feature (**Q ≤ 12**, not FFT bins — bin spacing is
@@ -130,9 +120,9 @@ and a filter that adds no ringing of its own scores 0.
 | | object judged | metric | why |
 |---|---|---|---|
 | guide **step 6b** | the *divisor* (`LX-MP`) inside REW | ~30 FFT bins ≈ 11 Hz | REW's display grid is fixed at 0.366 Hz, so bins are a stable unit there |
-| `drc_acceptance.py` | the *exported filter WAV* | **Q ≤ 12** | bin spacing is `fs/n`; a bin threshold would pass or fail the same filter depending on file length |
+| `tools/drc_acceptance.py` | the *exported filter WAV* | **Q ≤ 12** | bin spacing is `fs/n`; a bin threshold would pass or fail the same filter depending on file length |
 
-Both are correct. `fig-chain.png` shows the bin form because it depicts step 6.
+Both are correct. `figures/rew-inversion/fig-chain.png` shows the bin form because it depicts step 6.
 Do not "reconcile" them.
 
 ## Cross-repo paths
@@ -141,23 +131,15 @@ No script here reads a local data file. What each one opens:
 
 | script | reads | writes |
 |---|---|---|
-| `figbass.py` | `../DRC-120.blue/120.blue.Rscreen.txts/` | `fig-common-bass.png` |
-| `figconv.py` | `../DRC-120.blue/` + `120.blue.txts/` | `fig-convolution.png` |
-| `figwin.py`, `figfdw.py` | `../DRC-120.blue/LEFT-measured.csv` | `fig-window-shapes.png`, `fig-fdw.png` |
-| `figchain.py` | nothing — it draws | `fig-chain.png` |
-| `figroom.py` | `roomgeom.py`, traced from `room-form-with-panels.png` | `room-form.pdf` (2 pages), `room-form.png`, `room-form-panels.png` |
-| `figreflect.py` | `roomgeom.py` | `reflections-L-R.pdf`, `reflections-L.png`, `reflections-R.png` |
-| `gik_screen_panel_placement-120cm.py` | `roomgeom.py`, `../DRC-120.blue/foam.screens.opendoor.mdat`, `../DRC-120.blue/120.blue.Rscreen.txts.boh/` | `panel-placement-*-120cm.png` |
-| `housecurve.py` | nothing | `house-curve-C2.txt`, `house-curve-C3.txt` |
-| `allpass_tool.py` | `-l/-r/-s`, default `L0/R0/LR.txt` **in the cwd** | — |
+| `figures/rew-inversion/figbass.py` | `../DRC-120.blue/120.blue.Rscreen.txts/` | `fig-common-bass.png` |
+| `figures/rew-inversion/figconv.py` | `../DRC-120.blue/` + `120.blue.txts/` | `fig-convolution.png` |
+| `figures/rew-inversion/figwin.py`, `figures/rew-inversion/figfdw.py` | `../DRC-120.blue/LEFT-measured.csv` | `fig-window-shapes.png`, `fig-fdw.png` |
+| `figures/rew-inversion/figchain.py` | nothing — it draws | `figures/rew-inversion/fig-chain.png` |
+| `room/figroom.py` | `room/roomgeom.py`, traced from `room/room-form-with-panels.png` | `room-form.pdf` (2 pages), `room-form.png`, `room-form-panels.png` |
+| `room/figreflect.py` | `room/roomgeom.py` | `reflections-L-R.pdf`, `reflections-L.png`, `reflections-R.png` |
+| `room/gik_screen_panel_placement-120cm.py` | `room/roomgeom.py`, `../DRC-120.blue/foam.screens.opendoor.mdat`, `../DRC-120.blue/120.blue.Rscreen.txts.boh/` | `panel-placement-*-120cm.png` |
 
-`allpass_tool.py` defaults to filenames that now live next door. Run it as:
-
-```sh
-python3 allpass_tool.py -l ../DRC-185/L0.txt -r ../DRC-185/R0.txt -s ../DRC-185/LR.txt
-```
-
-`room.png` and `room-form-with-panels.png` are **inputs** — the pencil plan and
+`room/room.png` and `room/room-form-with-panels.png` are **inputs** — the pencil plan and
 the hand-annotated panel sketch. The `room-form*` outputs are generated.
 
 ### The `DRC-120.blue` renames
@@ -189,8 +171,8 @@ read figures from it. Its measured traces are identical to the live ones
 
 ## Room geometry
 
-`roomgeom.py` is the single source of truth, imported by `figroom.py` and
-`figreflect.py` so they cannot drift. Distances are to the **tweeter**, measured
+`room/roomgeom.py` is the single source of truth, imported by `room/figroom.py` and
+`room/figreflect.py` so they cannot drift. Distances are to the **tweeter**, measured
 2026-08-10. Room length 7.40 m, the 1.80 m opening, the corridor and the
 ceiling slant are still **from the sketch, not measured** — treat as
 indicative.

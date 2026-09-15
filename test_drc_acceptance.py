@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-import drc_acceptance as d
+from tools import drc_acceptance as d
 
 
 class AcceptanceTests(unittest.TestCase):
